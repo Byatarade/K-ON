@@ -29,6 +29,7 @@ export default function HomePage() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cartKantinId, setCartKantinId] = useState(null);
 
   // Customer orders stored by ID in browser
   const [customerOrderIds, setCustomerOrderIds] = useState([]);
@@ -92,8 +93,27 @@ export default function HomePage() {
     return sum + (item ? item.harga * qty : 0);
   }, 0);
 
+  // Kantin that owns the current cart (cart can only hold one kantin at a time)
+  const cartKantin = kantinList.find((k) => String(k.id) === String(cartKantinId)) || null;
+  const cartMenus = cartKantin
+    ? allMenus.filter((m) => String(m.kantin_id) === String(cartKantin.id))
+    : [];
+
   // Cart operations
   const handleAddToCart = (menuId) => {
+    const menu = allMenus.find((m) => String(m.id) === String(menuId));
+    if (!menu) return;
+    const kId = String(menu.kantin_id);
+    const hasItems = Object.keys(cart).length > 0;
+    if (hasItems && cartKantinId && String(cartKantinId) !== kId) {
+      if (!confirm("Keranjang berisi menu dari kantin lain. Kosongkan dan pesan dari kantin ini?")) {
+        return;
+      }
+      setCart({ [menuId]: 1 });
+      setCartKantinId(kId);
+      return;
+    }
+    setCartKantinId(kId);
     setCart((prev) => ({
       ...prev,
       [menuId]: (prev[menuId] || 0) + 1,
@@ -115,7 +135,6 @@ export default function HomePage() {
   const handleSelectKantin = (kantin) => {
     setSelectedKantin(kantin);
     setActiveCategory("Semua");
-    setCart({}); // Reset cart when changing canteen
   };
 
   // Submit order
@@ -166,7 +185,6 @@ export default function HomePage() {
         showBack={Boolean(selectedKantin && activeTab === "jajan")}
         onBack={() => {
           setSelectedKantin(null);
-          setCart({});
         }}
         cartCount={cartItemCount}
         onOpenCart={cartItemCount > 0 ? () => setIsCartOpen(true) : null}
@@ -198,6 +216,66 @@ export default function HomePage() {
                     />
                   );
                 })}
+              </div>
+
+              {/* Semua menu dari semua kantin */}
+              <h2 style={{ fontSize: "1.125rem", fontWeight: "700", margin: "24px 0 4px" }}>
+                🍽️ Menu Hari Ini
+              </h2>
+              <p className="page-subtitle" style={{ marginBottom: "8px" }}>
+                Semua menu yang ditambahkan ibu kantin tampil di sini.
+              </p>
+              <CategoryChips activeCategory={activeCategory} onSelectCategory={setActiveCategory} />
+              {(() => {
+                const feed = allMenus.filter(
+                  (m) =>
+                    activeCategory === "Semua" ||
+                    m.kategori?.toLowerCase() === activeCategory.toLowerCase()
+                );
+                if (feed.length === 0) {
+                  return (
+                    <EmptyState
+                      icon="🍽️"
+                      title="Belum ada menu"
+                      subtitle="Menu akan muncul setelah ibu kantin menambahkannya."
+                    />
+                  );
+                }
+                return (
+                  <div className="grid-menu">
+                    {feed.map((menu) => {
+                      const k = kantinList.find((x) => String(x.id) === String(menu.kantin_id));
+                      const closed = !k || k.buka === false;
+                      return (
+                        <div key={menu.id}>
+                          <div
+                            style={{
+                              fontSize: "0.6875rem",
+                              fontWeight: 600,
+                              color: "var(--text-secondary)",
+                              margin: "0 0 4px 2px",
+                            }}
+                          >
+                            {k?.emoji || "🏪"} {k?.nama || "Kantin"}
+                            {closed ? " • Tutup" : ""}
+                          </div>
+                          <MenuCard
+                            menu={closed ? { ...menu, tersedia: false } : menu}
+                            cartQty={cart[menu.id] || 0}
+                            onAddToCart={handleAddToCart}
+                            onRemoveFromCart={handleRemoveFromCart}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              <div style={{ textAlign: "center", margin: "32px 0 16px" }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => setIsLoginOpen(true)}>
+                  👩‍🍳 Masuk / Daftar Ibu Kantin
+                </button>
               </div>
             </div>
           ) : (
@@ -333,9 +411,9 @@ export default function HomePage() {
       <CartModal
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
-        kantin={selectedKantin}
+        kantin={cartKantin}
         cart={cart}
-        menuList={canteenMenus}
+        menuList={cartMenus}
         onAddToCart={handleAddToCart}
         onRemoveFromCart={handleRemoveFromCart}
         onSubmitOrder={handleSubmitOrder}

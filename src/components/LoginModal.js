@@ -90,6 +90,18 @@ export default function LoginModal({ isOpen, onClose, kantinList = [] }) {
             type="button"
             className="btn btn-secondary btn-block"
             style={{ marginTop: "8px" }}
+            onClick={() => {
+              onClose();
+              router.push("/daftar");
+            }}
+          >
+            Belum punya akun? Daftar Kantin
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-secondary btn-block"
+            style={{ marginTop: "8px" }}
             onClick={onClose}
           >
             Batal

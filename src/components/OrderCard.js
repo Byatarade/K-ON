@@ -19,9 +19,9 @@ export default function OrderCard({ order, kantinName = "Kantin" }) {
 
       <div className="order-meta">
         <div>
-          <b>{order.nama_pemesan}</b> ({order.kelas}) •{" "}
+          <b>{order.nama_pemesan}</b> ({order.kelas}{order.jurusan ? ` ${order.jurusan}` : ""}) •{" "}
           {order.opsi_antar ? "🛵 Diantar ke kelas" : "🚶 Diambil sendiri"} •{" "}
-          {order.metode_bayar === "qr" ? "📱 QR Code" : "💵 Tunai"}
+          {order.metode_bayar === "qr" ? "📱 QRIS (Lunas)" : "💵 Tunai"}
         </div>
         {order.catatan && (
           <div style={{ marginTop: "4px", color: "var(--text-tertiary)" }}>

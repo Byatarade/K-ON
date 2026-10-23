@@ -122,6 +122,37 @@ export async function updateKantinStatus(kantinId, isOpen) {
   setLocal("kantin", updated);
 }
 
+/**
+ * Register a new canteen (seller) account. Returns the new kantin id.
+ * Throws Error("USERNAME_TAKEN") if the username already exists.
+ */
+export async function registerKantin({ nama, emoji, username, password }) {
+  const uname = username.trim().toLowerCase();
+  const base = {
+    nama: nama.trim(),
+    emoji: emoji || "🏪",
+    warna: "#2563EB",
+    username: uname,
+    password,
+    buka: true,
+    foto_url: null,
+    qr_url: null,
+  };
+
+  if (isFirebaseConfigured() && db) {
+    const snap = await getDocs(query(collection(db, "kantin"), where("username", "==", uname)));
+    if (!snap.empty) throw new Error("USERNAME_TAKEN");
+    const ref = await addDoc(collection(db, "kantin"), { ...base, created_at: serverTimestamp() });
+    return ref.id;
+  }
+
+  const list = getLocal("kantin", DEFAULT_KANTIN);
+  if (list.some((k) => k.username?.toLowerCase() === uname)) throw new Error("USERNAME_TAKEN");
+  const id = `k-${Date.now()}`;
+  setLocal("kantin", [...list, { ...base, id }]);
+  return id;
+}
+
 export async function updateKantinProfile(kantinId, data) {
   if (isFirebaseConfigured() && db) {
     const ref = doc(db, "kantin", String(kantinId));
@@ -288,7 +319,7 @@ export async function createOrder(orderData) {
   const payload = {
     ...orderData,
     kantin_id: String(orderData.kantin_id),
-    status: 0,
+    status: typeof orderData.status === "number" ? orderData.status : 0,
     created_at: new Date().toISOString(),
   };
 

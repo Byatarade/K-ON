@@ -352,7 +352,7 @@ function OrdersTab({ orders, onUpdateStatus }) {
           >
             <div className="order-header">
               <span className="order-id">
-                #{ord.id} • {ord.nama_pemesan} ({ord.kelas})
+                #{ord.id} • {ord.nama_pemesan} ({ord.kelas}{ord.jurusan ? ` ${ord.jurusan}` : ""})
               </span>
               <span className="order-time">{formatTime(ord.created_at)}</span>
             </div>

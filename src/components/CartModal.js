@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatRupiah, ONGKIR_FLAT } from "@/lib/utils";
+import DummyQR from "@/components/DummyQR";
 
 export default function CartModal({
   isOpen,
@@ -16,6 +17,7 @@ export default function CartModal({
 }) {
   const [nama, setNama] = useState("");
   const [kelas, setKelas] = useState("");
+  const [jurusan, setJurusan] = useState("");
   const [isDelivery, setIsDelivery] = useState(false);
   const [payMethod, setPayMethod] = useState("tunai"); // "tunai" | "qr"
   const [catatan, setCatatan] = useState("");
@@ -36,8 +38,12 @@ export default function CartModal({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!nama.trim() || !kelas.trim()) {
-      alert("Harap isi nama dan kelas terlebih dahulu ya! 😊");
+    submitOrder();
+  };
+
+  const submitOrder = () => {
+    if (!nama.trim() || !kelas.trim() || !jurusan.trim()) {
+      alert("Harap isi nama lengkap, kelas, dan jurusan terlebih dahulu ya! 😊");
       return;
     }
     if (cartEntries.length === 0) {
@@ -49,7 +55,11 @@ export default function CartModal({
       kantin_id: kantin.id,
       nama_pemesan: nama.trim(),
       kelas: kelas.trim(),
+      jurusan: jurusan.trim(),
       opsi_antar: isDelivery,
+      // QRIS = dibayar langsung -> pesanan langsung dimasak (status 1)
+      status: payMethod === "qr" ? 1 : 0,
+      sudah_bayar: payMethod === "qr",
       metode_bayar: payMethod,
       catatan: catatan.trim(),
       ongkir,
@@ -174,29 +184,43 @@ export default function CartModal({
 
             {/* Form Fields */}
             <div className="form-group">
-              <label className="form-label">Nama Pemesan *</label>
+              <label className="form-label">Nama Lengkap *</label>
               <input
                 className="form-input"
                 type="text"
                 placeholder="Contoh: Budi Santoso"
-                maxLength={30}
+                maxLength={40}
                 value={nama}
                 onChange={(e) => setNama(e.target.value)}
                 required
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Kelas *</label>
-              <input
-                className="form-input"
-                type="text"
-                placeholder="Contoh: 5A / 8B / 11 MIPA 1"
-                maxLength={12}
-                value={kelas}
-                onChange={(e) => setKelas(e.target.value)}
-                required
-              />
+            <div style={{ display: "flex", gap: "10px" }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Kelas *</label>
+                <input
+                  className="form-input"
+                  type="text"
+                  placeholder="Contoh: XI-2"
+                  maxLength={12}
+                  value={kelas}
+                  onChange={(e) => setKelas(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Jurusan *</label>
+                <input
+                  className="form-input"
+                  type="text"
+                  placeholder="Contoh: RPL"
+                  maxLength={20}
+                  value={jurusan}
+                  onChange={(e) => setJurusan(e.target.value)}
+                  required
+                />
+              </div>
             </div>
 
             {/* Delivery option */}
@@ -249,34 +273,11 @@ export default function CartModal({
                   border: "1px dashed var(--border-default)",
                 }}
               >
-                {kantin?.qr_url ? (
-                  <img
-                    src={kantin.qr_url}
-                    alt="QRIS Kantin"
-                    style={{ width: "160px", height: "160px", objectFit: "contain", borderRadius: "8px" }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: "160px",
-                      height: "160px",
-                      margin: "0 auto",
-                      backgroundColor: "#ffffff",
-                      border: "1px solid var(--border-default)",
-                      borderRadius: "8px",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "6px",
-                    }}
-                  >
-                    <span style={{ fontSize: "2rem" }}>📱</span>
-                    <span style={{ fontSize: "0.75rem", fontWeight: "700" }}>QRIS KANTIN</span>
-                  </div>
-                )}
-                <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "8px" }}>
-                  Scan QR {kantin?.nama}, lalu tunjukkan bukti bayar ke penjual.
+                <div style={{ fontWeight: 700, fontSize: "0.8125rem", marginBottom: "8px" }}>QRIS • {kantin?.nama}</div>
+                <DummyQR seed={`${kantin?.id}-${grandTotal}`} />
+                <div style={{ fontWeight: 700, marginTop: "8px" }}>{formatRupiah(grandTotal)}</div>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "4px" }}>
+                  Kode QRIS simulasi. Klik tombol di bawah untuk menyelesaikan pembayaran, pesanan langsung dimasak.
                 </div>
               </div>
             )}
@@ -300,7 +301,11 @@ export default function CartModal({
               className="btn btn-primary btn-block btn-lg"
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Mengirim Pesanan..." : `🚀 Pesan Sekarang (${formatRupiah(grandTotal)})`}
+              {isSubmitting
+                ? "Mengirim Pesanan..."
+                : payMethod === "qr"
+                ? `📱 Bayar dengan QRIS (${formatRupiah(grandTotal)})`
+                : `🚀 Pesan Sekarang (${formatRupiah(grandTotal)})`}
             </button>
 
             <button
