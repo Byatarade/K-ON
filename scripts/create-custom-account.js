@@ -28,13 +28,18 @@ function loadEnv() {
 const env = loadEnv();
 
 const firebaseConfig = {
-  apiKey: env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyDRYmh8lwrKH7EGNKKaBCBld_6PfRrlxho",
-  authDomain: env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "kantin-c6841.firebaseapp.com",
-  projectId: env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "kantin-c6841",
-  storageBucket: env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "kantin-c6841.firebasestorage.app",
-  messagingSenderId: env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "579998863181",
-  appId: env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:579998863181:web:66013b905777d58672f104",
+  apiKey: env.NEXT_PUBLIC_FIREBASE_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: env.NEXT_PUBLIC_FIREBASE_APP_ID || process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
+
+if (!firebaseConfig.apiKey) {
+  console.error("❌ Error: NEXT_PUBLIC_FIREBASE_API_KEY tidak ditemukan di .env.local!");
+  process.exit(1);
+}
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
