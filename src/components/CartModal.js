@@ -41,10 +41,10 @@ export default function CartModal({
       if (currentUser.nama) setNama(currentUser.nama);
       if (currentUser.role === "kantin") {
         setKelas("Ibu Kantin");
-        setJurusan("Ibu Kantin");
+        setJurusan("");
       } else if (currentUser.kelas) {
         setKelas(currentUser.kelas);
-        setJurusan(currentUser.kelas);
+        setJurusan("");
       }
     }
   }, [currentUser, isOpen]);
@@ -83,7 +83,7 @@ export default function CartModal({
       siswa_id: currentUser?.id || null,
       nama_pemesan: nama.trim(),
       kelas: kelas.trim(),
-      jurusan: jurusan.trim() || kelas.trim(),
+      jurusan: "",
       opsi_antar: isDelivery,
       status: payMethod === "qr" ? 1 : 0,
       sudah_bayar: payMethod === "qr",

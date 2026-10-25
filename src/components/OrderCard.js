@@ -13,16 +13,29 @@ import {
   Utensils,
 } from "lucide-react";
 
-const STATUS_ICONS = [
-  { label: "Menunggu Konfirmasi", icon: Clock, color: "var(--color-warning)" },
-  { label: "Sedang Dimasak", icon: Flame, color: "var(--color-primary)" },
-  { label: "Siap / Sedang Diantar", icon: Truck, color: "var(--color-primary)" },
-  { label: "Pesanan Selesai", icon: CheckCircle2, color: "var(--color-success)" },
-  { label: "Pesanan Dibatalkan", icon: XCircle, color: "var(--color-danger)" },
-];
-
 export default function OrderCard({ order, kantinName = "Kantin" }) {
-  const statusInfo = STATUS_ICONS[order.status] || STATUS_ICONS[0];
+  const getCardStatus = () => {
+    if (order.status === 0) {
+      return { label: "Menunggu Konfirmasi", icon: Clock, color: "var(--color-warning)" };
+    }
+    if (order.status === 1) {
+      return { label: "Sedang Dimasak", icon: Flame, color: "var(--color-primary)" };
+    }
+    if (order.status === 2) {
+      return order.opsi_antar
+        ? { label: "Makanan Sedang Diantar", icon: Truck, color: "var(--color-primary)" }
+        : { label: "Makanan Siap Diambil", icon: UserCheck, color: "var(--color-primary)" };
+    }
+    if (order.status === 3) {
+      return { label: "Pesanan Selesai", icon: CheckCircle2, color: "var(--color-success)" };
+    }
+    if (order.status === 4) {
+      return { label: "Pesanan Dibatalkan", icon: XCircle, color: "var(--color-danger)" };
+    }
+    return { label: "Menunggu Konfirmasi", icon: Clock, color: "var(--color-warning)" };
+  };
+
+  const statusInfo = getCardStatus();
   const StatusIcon = statusInfo.icon;
   const isCancelled = order.status === 4;
 
@@ -39,7 +52,7 @@ export default function OrderCard({ order, kantinName = "Kantin" }) {
 
       <div className="order-meta">
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px" }}>
-          <b>{order.nama_pemesan}</b> ({order.kelas})
+          <b>{order.nama_pemesan}</b> {order.kelas ? `(${order.kelas})` : ""}
           <span>•</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
             {order.opsi_antar ? (
@@ -81,7 +94,7 @@ export default function OrderCard({ order, kantinName = "Kantin" }) {
           </span>
         ))}
         {order.ongkir > 0 && (
-          <span style={{ color: "var(--text-secondary)" }}>
+          <span style={{ color: "var(--text-secondary)", display: "inline-flex", alignItems: "center", gap: "2px" }}>
             {" "}• Ongkir {formatRupiah(order.ongkir)}
           </span>
         )}

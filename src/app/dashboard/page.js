@@ -20,7 +20,7 @@ import {
   deleteExpense,
 } from "@/lib/firestore";
 import { uploadImage } from "@/lib/storage";
-import { formatRupiah, formatTime, formatDate, ORDER_STATUS, ONGKIR_FLAT } from "@/lib/utils";
+import { formatRupiah, formatTime, formatDate, ORDER_STATUS, getOrderStatusInfo, ONGKIR_FLAT } from "@/lib/utils";
 import {
   Store,
   Utensils,
@@ -40,6 +40,9 @@ import {
   XCircle,
   Coffee,
   Cookie,
+  UserCheck,
+  Banknote,
+  ChefHat,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -376,7 +379,7 @@ function OrdersTab({ orders, onUpdateStatus }) {
   if (orders.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "40px", backgroundColor: "var(--bg-primary)", borderRadius: "var(--radius-lg)" }}>
-        <p style={{ color: "var(--text-secondary)" }}>Belum ada pesanan masuk. 🕐</p>
+        <p style={{ color: "var(--text-secondary)" }}>Belum ada pesanan masuk.</p>
       </div>
     );
   }
@@ -386,6 +389,14 @@ function OrdersTab({ orders, onUpdateStatus }) {
       {orders.map((ord) => {
         const isCancelled = ord.status === 4;
         const isFinished = ord.status === 3;
+        const statusInfo = getOrderStatusInfo(ord.status, ord.opsi_antar);
+
+        // Display nama kelas tanpa dobel
+        const displayKelas = ord.kelas
+          ? ord.jurusan && ord.jurusan !== ord.kelas
+            ? `${ord.kelas} • ${ord.jurusan}`
+            : ord.kelas
+          : "";
 
         return (
           <div
@@ -395,37 +406,55 @@ function OrdersTab({ orders, onUpdateStatus }) {
           >
             <div className="order-header">
               <span className="order-id">
-                #{ord.id} • {ord.nama_pemesan} ({ord.kelas}{ord.jurusan ? ` ${ord.jurusan}` : ""})
+                #{ord.id} • {ord.nama_pemesan} {displayKelas ? `(${displayKelas})` : ""}
               </span>
               <span className="order-time">{formatTime(ord.created_at)}</span>
             </div>
 
             <div className="order-meta">
-              <div>
-                {ord.opsi_antar ? (
-                  <b style={{ color: "var(--accent-primary)" }}>🛵 Diantar ke kelas {ord.kelas}</b>
-                ) : (
-                  "🚶 Diambil sendiri"
-                )}{" "}
-                • {ord.metode_bayar === "qr" ? "📱 QR Code" : "💵 Tunai"}
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  {ord.opsi_antar ? (
+                    <b style={{ color: "var(--accent-primary)", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                      <Truck size={14} /> Diantar ke kelas {ord.kelas}
+                    </b>
+                  ) : (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                      <UserCheck size={14} /> Diambil sendiri
+                    </span>
+                  )}
+                </span>
+                <span>•</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  {ord.metode_bayar === "qr" ? (
+                    <>
+                      <QrCode size={14} /> QRIS
+                    </>
+                  ) : (
+                    <>
+                      <Banknote size={14} /> Tunai
+                    </>
+                  )}
+                </span>
               </div>
               {ord.catatan && (
                 <div style={{ marginTop: "4px", color: "var(--text-secondary)" }}>
-                  📝 Catatan: &ldquo;{ord.catatan}&rdquo;
+                  Catatan: &ldquo;{ord.catatan}&rdquo;
                 </div>
               )}
             </div>
 
-            <div className="order-items-list">
+            <div className="order-items-list" style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px" }}>
+              <Utensils size={13} style={{ marginRight: "2px" }} />
               {ord.items?.map((it, idx) => (
                 <span key={idx}>
-                  {it.emoji || "🍽️"} {it.nama} ×{it.jumlah}
+                  {it.nama} ×{it.jumlah}
                   {idx < ord.items.length - 1 ? ", " : ""}
                 </span>
               ))}
               {ord.ongkir > 0 && (
-                <span style={{ color: "var(--text-secondary)" }}>
-                  {" "}• 🛵 Ongkir {formatRupiah(ord.ongkir)}
+                <span style={{ color: "var(--text-secondary)", display: "inline-flex", alignItems: "center", gap: "2px" }}>
+                  {" "}• Ongkir {formatRupiah(ord.ongkir)}
                 </span>
               )}
             </div>
@@ -436,8 +465,19 @@ function OrdersTab({ orders, onUpdateStatus }) {
                   {formatRupiah(ord.total)}
                 </span>{" "}
                 —{" "}
-                <span style={{ fontSize: "0.875rem", fontWeight: "600" }}>
-                  {ORDER_STATUS[ord.status]?.label || "Status"}
+                <span
+                  style={{
+                    fontSize: "0.875rem",
+                    fontWeight: "600",
+                    color:
+                      ord.status === 4
+                        ? "var(--color-danger)"
+                        : ord.status === 3
+                        ? "var(--color-success)"
+                        : "var(--text-primary)",
+                  }}
+                >
+                  {statusInfo.label}
                 </span>
               </div>
 
@@ -446,14 +486,27 @@ function OrdersTab({ orders, onUpdateStatus }) {
                   <button
                     className="btn btn-primary btn-sm"
                     onClick={() => onUpdateStatus(ord.id, ord.status + 1)}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
                   >
-                    {ord.status === 0
-                      ? "👩‍🍳 Terima & Masak"
-                      : ord.status === 1
-                      ? ord.opsi_antar
-                        ? "🛵 Antar ke Kelas"
-                        : "🔔 Siap Diambil"
-                      : "✅ Selesai"}
+                    {ord.status === 0 ? (
+                      <>
+                        <ChefHat size={14} /> Terima & Masak
+                      </>
+                    ) : ord.status === 1 ? (
+                      ord.opsi_antar ? (
+                        <>
+                          <Truck size={14} /> Antar ke Kelas
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 size={14} /> Siap Diambil
+                        </>
+                      )
+                    ) : (
+                      <>
+                        <CheckCircle2 size={14} /> Selesai
+                      </>
+                    )}
                   </button>
                   <button
                     className="btn btn-danger btn-sm"
@@ -462,8 +515,9 @@ function OrdersTab({ orders, onUpdateStatus }) {
                         onUpdateStatus(ord.id, 4);
                       }
                     }}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
                   >
-                    Batalkan
+                    <XCircle size={14} /> Batalkan
                   </button>
                 </div>
               )}
@@ -773,7 +827,7 @@ function HppTab({ menus, onSaveModal }) {
           >
             {menus.map((m) => (
               <option key={m.id} value={m.id}>
-                {m.emoji} {m.nama} — Harga Jual: {formatRupiah(m.harga)}
+                {m.nama} — Harga Jual: {formatRupiah(m.harga)}
               </option>
             ))}
           </select>
@@ -1029,7 +1083,6 @@ function RekapTab({
       kantin_id: kantinId,
       tanggal: new Date(offlineDate).toISOString(),
       nama_menu: selMenu.nama,
-      emoji: selMenu.emoji || "🍽️",
       harga: selMenu.harga,
       modal: selMenu.modal || 0,
       jumlah: Number(offlineQty) || 1,
@@ -1068,7 +1121,7 @@ function RekapTab({
         }}
       >
         <h3 style={{ fontSize: "1rem", fontWeight: "700", marginBottom: "10px" }}>
-          ➕ Catat Penjualan Langsung di Kantin (Offline)
+          Catat Penjualan Langsung di Kantin (Offline)
         </h3>
         <form onSubmit={handleAddOffline}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "8px" }}>
@@ -1091,7 +1144,7 @@ function RekapTab({
               >
                 {menus.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.emoji} {m.nama} — {formatRupiah(m.harga)}
+                    {m.nama} — {formatRupiah(m.harga)}
                   </option>
                 ))}
               </select>
@@ -1517,7 +1570,7 @@ function ProfilTab({ kantin, onUpdateProfile }) {
         {kantin.foto_url ? (
           <img src={kantin.foto_url} alt={kantin.nama} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         ) : (
-          <span style={{ fontSize: "4rem" }}>{kantin.emoji || "🏪"}</span>
+          <Store size={56} strokeWidth={1.5} color="var(--color-primary)" />
         )}
       </div>
 
