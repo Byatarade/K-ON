@@ -1,5 +1,7 @@
 "use client";
 
+import { Utensils, ClipboardList } from "lucide-react";
+
 export default function BottomNav({ activeTab = "jajan", onChangeTab, activeOrderCount = 0 }) {
   return (
     <nav className="bottom-nav">
@@ -8,7 +10,7 @@ export default function BottomNav({ activeTab = "jajan", onChangeTab, activeOrde
           className={`bottom-nav-item ${activeTab === "jajan" ? "active" : ""}`}
           onClick={() => onChangeTab("jajan")}
         >
-          <span style={{ fontSize: "1.2rem" }}>🏠</span>
+          <Utensils size={20} />
           <span>Jajan</span>
         </button>
 
@@ -17,7 +19,7 @@ export default function BottomNav({ activeTab = "jajan", onChangeTab, activeOrde
           onClick={() => onChangeTab("pesanan")}
           style={{ position: "relative" }}
         >
-          <span style={{ fontSize: "1.2rem" }}>📦</span>
+          <ClipboardList size={20} />
           <span>Pesanan Saya</span>
           {activeOrderCount > 0 && (
             <span

@@ -1,10 +1,12 @@
 "use client";
 
+import { LayoutGrid, Utensils, Coffee, Cookie } from "lucide-react";
+
 const CATEGORIES = [
-  { id: "Semua", label: "Semua", icon: "🌟" },
-  { id: "Makanan", label: "Makanan", icon: "🍱" },
-  { id: "Minuman", label: "Minuman", icon: "🥤" },
-  { id: "Snack", label: "Snack", icon: "🍿" },
+  { id: "Semua", label: "Semua", icon: LayoutGrid },
+  { id: "Makanan", label: "Makanan", icon: Utensils },
+  { id: "Minuman", label: "Minuman", icon: Coffee },
+  { id: "Snack", label: "Snack", icon: Cookie },
 ];
 
 export default function CategoryChips({ activeCategory = "Semua", onSelectCategory }) {
@@ -12,6 +14,7 @@ export default function CategoryChips({ activeCategory = "Semua", onSelectCatego
     <div className="chips-container" role="tablist">
       {CATEGORIES.map((cat) => {
         const isActive = activeCategory === cat.id;
+        const Icon = cat.icon;
         return (
           <button
             key={cat.id}
@@ -19,8 +22,9 @@ export default function CategoryChips({ activeCategory = "Semua", onSelectCatego
             aria-selected={isActive}
             className={`chip ${isActive ? "active" : ""}`}
             onClick={() => onSelectCategory(cat.id)}
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
           >
-            <span>{cat.icon}</span>
+            <Icon size={14} />
             <span>{cat.label}</span>
           </button>
         );

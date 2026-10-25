@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import KantinCard from "@/components/KantinCard";
@@ -18,9 +19,22 @@ import {
   createOrder,
 } from "@/lib/firestore";
 import { formatRupiah } from "@/lib/utils";
+import {
+  Flame,
+  Utensils,
+  Store,
+  ChefHat,
+  PackageOpen,
+  ArrowLeft,
+  GraduationCap,
+} from "lucide-react";
 
 export default function HomePage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("jajan"); // "jajan" | "pesanan"
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+
   const [kantinList, setKantinList] = useState([]);
   const [selectedKantin, setSelectedKantin] = useState(null);
   const [allMenus, setAllMenus] = useState([]);
@@ -34,6 +48,21 @@ export default function HomePage() {
   // Customer orders stored by ID in browser
   const [customerOrderIds, setCustomerOrderIds] = useState([]);
   const [customerOrders, setCustomerOrders] = useState([]);
+
+  // Check auth user on mount - jika belum login, arahkan ke /login
+  useEffect(() => {
+    try {
+      const savedUser = localStorage.getItem("kon_auth_user");
+      if (savedUser) {
+        setCurrentUser(JSON.parse(savedUser));
+        setIsAuthChecking(false);
+      } else {
+        router.replace("/login");
+      }
+    } catch (e) {
+      router.replace("/login");
+    }
+  }, [router]);
 
   // Load customer order IDs from localStorage on mount
   useEffect(() => {
@@ -75,6 +104,36 @@ export default function HomePage() {
     return () => unsub?.();
   }, [customerOrderIds]);
 
+  const handleLogout = () => {
+    if (confirm("Apakah kamu yakin ingin keluar dari akun?")) {
+      try {
+        localStorage.removeItem("kon_auth_user");
+      } catch (e) {}
+      setCurrentUser(null);
+      setSelectedKantin(null);
+      setCart({});
+      router.push("/login");
+    }
+  };
+
+  // If checking authentication or unauthenticated, show loading before redirect
+  if (isAuthChecking || !currentUser) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "var(--bg-secondary)",
+          color: "var(--text-secondary)",
+        }}
+      >
+        <span style={{ fontSize: "0.875rem" }}>Memuat K-ON...</span>
+      </div>
+    );
+  }
+
   // Active canteen menus
   const canteenMenus = selectedKantin
     ? allMenus.filter((m) => String(m.kantin_id) === String(selectedKantin.id))
@@ -93,7 +152,7 @@ export default function HomePage() {
     return sum + (item ? item.harga * qty : 0);
   }, 0);
 
-  // Kantin that owns the current cart (cart can only hold one kantin at a time)
+  // Kantin that owns the current cart
   const cartKantin = kantinList.find((k) => String(k.id) === String(cartKantinId)) || null;
   const cartMenus = cartKantin
     ? allMenus.filter((m) => String(m.kantin_id) === String(cartKantin.id))
@@ -149,45 +208,40 @@ export default function HomePage() {
       } catch (e) {
         console.error("Local storage error:", e);
       }
-
+      // Reset cart
       setCart({});
+      setCartKantinId(null);
       setIsCartOpen(false);
+      // Switch to order tracking tab
       setActiveTab("pesanan");
-    } catch (err) {
-      console.error("Failed to submit order:", err);
-      alert("Gagal mengirim pesanan. Silakan coba lagi.");
+    } catch (error) {
+      console.error("Error creating order:", error);
+      alert("Gagal membuat pesanan. Silakan periksa koneksi dan coba lagi.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Active non-finished order count for bottom nav badge
   const activeOrdersCount = customerOrders.filter((o) => o.status < 3).length;
 
   return (
-    <div>
-      {/* Top Bar */}
+    <div style={{ minHeight: "100vh", paddingBottom: "80px" }}>
+      {/* Top Application Header */}
       <TopBar
-        title={
-          activeTab === "pesanan"
-            ? "Pesanan Saya 📦"
-            : selectedKantin
-            ? `${selectedKantin.emoji || "🏪"} ${selectedKantin.nama}`
-            : "K-ON 🎈"
-        }
+        title={selectedKantin ? selectedKantin.nama : "K-ON"}
         subtitle={
-          activeTab === "pesanan"
-            ? "Pantau status pesananmu"
-            : selectedKantin
-            ? "Pilih jajanan favoritmu!"
-            : "Kantin Online Sekolah"
+          selectedKantin
+            ? "Katalog Menu Kantin"
+            : currentUser?.role === "kantin"
+            ? "Kantin Online • Ibu Kantin"
+            : `Kantin Online • ${currentUser?.kelas || "Siswa"}`
         }
-        showBack={Boolean(selectedKantin && activeTab === "jajan")}
-        onBack={() => {
-          setSelectedKantin(null);
-        }}
+        showBack={Boolean(selectedKantin)}
+        onBack={() => setSelectedKantin(null)}
         cartCount={cartItemCount}
         onOpenCart={cartItemCount > 0 ? () => setIsCartOpen(true) : null}
+        currentUser={currentUser}
+        onLogout={handleLogout}
         onSecretTrigger={() => setIsLoginOpen(true)}
       />
 
@@ -198,8 +252,21 @@ export default function HomePage() {
             /* Home: Select Kantin */
             <div>
               <div className="page-header">
-                <h1 className="page-title">Halo, teman! 👋</h1>
-                <p className="page-subtitle">Mau jajan di kantin mana hari ini?</p>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                  {currentUser?.role === "kantin" ? (
+                    <Store size={22} color="var(--color-primary)" />
+                  ) : (
+                    <GraduationCap size={22} color="var(--color-primary)" />
+                  )}
+                  <h1 className="page-title" style={{ margin: 0 }}>
+                    Halo, {currentUser?.nama}!
+                  </h1>
+                </div>
+                <p className="page-subtitle">
+                  {currentUser?.role === "kantin"
+                    ? "Anda sedang membuka tampilan toko sebagai Ibu Kantin. Anda juga dapat memesan menu di sini."
+                    : "Pilih kantin sekolah yang ingin kamu tuju untuk memesan menu favoritmu."}
+                </p>
               </div>
 
               <div className="grid-kantin">
@@ -219,11 +286,14 @@ export default function HomePage() {
               </div>
 
               {/* Semua menu dari semua kantin */}
-              <h2 style={{ fontSize: "1.125rem", fontWeight: "700", margin: "24px 0 4px" }}>
-                🍽️ Menu Hari Ini
-              </h2>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "28px 0 4px" }}>
+                <Utensils size={20} color="var(--color-primary)" />
+                <h2 style={{ fontSize: "1.125rem", fontWeight: "700", margin: 0 }}>
+                  Menu Tersedia Hari Ini
+                </h2>
+              </div>
               <p className="page-subtitle" style={{ marginBottom: "8px" }}>
-                Semua menu yang ditambahkan ibu kantin tampil di sini.
+                Semua menu yang ditambahkan oleh kantin sekolah.
               </p>
               <CategoryChips activeCategory={activeCategory} onSelectCategory={setActiveCategory} />
               {(() => {
@@ -235,9 +305,9 @@ export default function HomePage() {
                 if (feed.length === 0) {
                   return (
                     <EmptyState
-                      icon="🍽️"
+                      icon={Utensils}
                       title="Belum ada menu"
-                      subtitle="Menu akan muncul setelah ibu kantin menambahkannya."
+                      subtitle="Menu akan muncul setelah kantin menambahkannya."
                     />
                   );
                 }
@@ -254,9 +324,13 @@ export default function HomePage() {
                               fontWeight: 600,
                               color: "var(--text-secondary)",
                               margin: "0 0 4px 2px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
                             }}
                           >
-                            {k?.emoji || "🏪"} {k?.nama || "Kantin"}
+                            <Store size={12} />
+                            {k?.nama || "Kantin"}
                             {closed ? " • Tutup" : ""}
                           </div>
                           <MenuCard
@@ -273,9 +347,23 @@ export default function HomePage() {
               })()}
 
               <div style={{ textAlign: "center", margin: "32px 0 16px" }}>
-                <button className="btn btn-secondary btn-sm" onClick={() => setIsLoginOpen(true)}>
-                  👩‍🍳 Masuk / Daftar Ibu Kantin
-                </button>
+                {currentUser?.role === "kantin" ? (
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => router.push("/dashboard")}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                  >
+                    <ChefHat size={15} /> Kembali ke Dashboard Pengelolaan
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setIsLoginOpen(true)}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                  >
+                    <ChefHat size={15} /> Masuk ke Dashboard Ibu Kantin
+                  </button>
+                )}
               </div>
             </div>
           ) : (
@@ -303,9 +391,20 @@ export default function HomePage() {
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                    <span style={{ fontSize: "2.4rem" }}>
-                      {canteenMenus[0]?.emoji || "⭐"}
-                    </span>
+                    <div
+                      style={{
+                        width: "48px",
+                        height: "48px",
+                        borderRadius: "12px",
+                        background: "var(--primary-subtle)",
+                        color: "var(--color-primary)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Flame size={24} />
+                    </div>
                     <div>
                       <div
                         style={{
@@ -314,9 +413,12 @@ export default function HomePage() {
                           color: "var(--accent-primary)",
                           textTransform: "uppercase",
                           letterSpacing: "0.05em",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
                         }}
                       >
-                        ⭐ Rekomendasi Menu
+                        <Flame size={12} /> Rekomendasi Menu
                       </div>
                       <div style={{ fontSize: "1rem", fontWeight: "700" }}>
                         {canteenMenus[0]?.nama}
@@ -337,12 +439,15 @@ export default function HomePage() {
               )}
 
               {/* Menu Grid */}
-              <h2 style={{ fontSize: "1.125rem", fontWeight: "700", marginTop: "16px" }}>
-                {activeCategory === "Semua" ? "📋 Semua Menu" : activeCategory}
-              </h2>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "16px" }}>
+                <Utensils size={18} color="var(--color-primary)" />
+                <h2 style={{ fontSize: "1.125rem", fontWeight: "700", margin: 0 }}>
+                  {activeCategory === "Semua" ? "Semua Menu" : activeCategory}
+                </h2>
+              </div>
 
               {filteredMenus.length > 0 ? (
-                <div className="grid-menu">
+                <div className="grid-menu" style={{ marginTop: "12px" }}>
                   {filteredMenus.map((menu) => (
                     <MenuCard
                       key={menu.id}
@@ -355,7 +460,7 @@ export default function HomePage() {
                 </div>
               ) : (
                 <EmptyState
-                  icon="🍽️"
+                  icon={Utensils}
                   title="Belum ada menu di kategori ini"
                   subtitle="Silakan pilih kategori menu lainnya."
                 />
@@ -366,9 +471,9 @@ export default function HomePage() {
           /* Order Tracking Tab: "Pesanan Saya" */
           <div style={{ marginTop: "16px" }}>
             <div className="page-header">
-              <h1 className="page-title">📦 Pesanan Saya</h1>
+              <h1 className="page-title">Pesanan Saya</h1>
               <p className="page-subtitle">
-                Status pesanan diperbarui secara otomatis (real-time).
+                Status pesanan Anda diperbarui secara otomatis (real-time).
               </p>
             </div>
 
@@ -389,7 +494,7 @@ export default function HomePage() {
               </div>
             ) : (
               <EmptyState
-                icon="🍭"
+                icon={PackageOpen}
                 title="Belum ada pesanan aktif"
                 subtitle="Yuk pilih menu favoritmu di kantin dan buat pesanan pertama!"
                 actionText="Jajan Sekarang"
@@ -418,6 +523,7 @@ export default function HomePage() {
         onRemoveFromCart={handleRemoveFromCart}
         onSubmitOrder={handleSubmitOrder}
         isSubmitting={isSubmitting}
+        currentUser={currentUser}
       />
 
       {/* Secret Seller Login Modal (10-tap logo trigger) */}

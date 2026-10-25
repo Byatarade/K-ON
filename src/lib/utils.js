@@ -50,14 +50,38 @@ export function escapeHtml(str) {
 }
 
 /**
- * Status mapper for order steps
+ * Status mapper for order steps (clean without emoji)
  */
 export const ORDER_STATUS = {
-  0: { label: "Menunggu konfirmasi 🕐", color: "warning", text: "Menunggu" },
-  1: { label: "Sedang dimasak 👩‍🍳", color: "primary", text: "Dimasak" },
-  2: { label: "Siap diambil / diantar 🛵", color: "info", text: "Siap / Diantar" },
-  3: { label: "Selesai ✅", color: "success", text: "Selesai" },
-  4: { label: "Dibatalkan ❌", color: "danger", text: "Batal" },
+  0: { label: "Menunggu Konfirmasi", color: "warning", text: "Menunggu" },
+  1: { label: "Sedang Dimasak", color: "primary", text: "Dimasak" },
+  2: { label: "Makanan Siap Diambil / Diantar", color: "info", text: "Siap / Diantar" },
+  3: { label: "Pesanan Selesai", color: "success", text: "Selesai" },
+  4: { label: "Pesanan Dibatalkan", color: "danger", text: "Dibatalkan" },
 };
+
+/**
+ * Helper to get contextual status label and text based on delivery option
+ */
+export function getOrderStatusInfo(status, opsi_antar = false) {
+  if (status === 0) {
+    return { label: "Menunggu Konfirmasi", color: "warning", text: "Menunggu" };
+  }
+  if (status === 1) {
+    return { label: "Sedang Dimasak", color: "primary", text: "Dimasak" };
+  }
+  if (status === 2) {
+    return opsi_antar
+      ? { label: "Makanan Sedang Diantar", color: "info", text: "Sedang Diantar" }
+      : { label: "Makanan Siap Diambil", color: "info", text: "Siap Diambil" };
+  }
+  if (status === 3) {
+    return { label: "Pesanan Selesai", color: "success", text: "Selesai" };
+  }
+  if (status === 4) {
+    return { label: "Pesanan Dibatalkan", color: "danger", text: "Dibatalkan" };
+  }
+  return { label: "Menunggu Konfirmasi", color: "warning", text: "Menunggu" };
+}
 
 export const ONGKIR_FLAT = 2000;

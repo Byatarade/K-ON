@@ -21,6 +21,26 @@ import {
 } from "@/lib/firestore";
 import { uploadImage } from "@/lib/storage";
 import { formatRupiah, formatTime, formatDate, ORDER_STATUS, ONGKIR_FLAT } from "@/lib/utils";
+import {
+  Store,
+  Utensils,
+  ClipboardList,
+  Calculator,
+  Calendar,
+  TrendingUp,
+  QrCode,
+  LogOut,
+  Eye,
+  Plus,
+  Trash2,
+  CheckCircle2,
+  Clock,
+  Flame,
+  Truck,
+  XCircle,
+  Coffee,
+  Cookie,
+} from "lucide-react";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -155,7 +175,20 @@ export default function DashboardPage() {
       <header className="topbar">
         <div className="topbar-content">
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span style={{ fontSize: "1.5rem" }}>{kantin.emoji || "🏪"}</span>
+            <div
+              style={{
+                width: "40px",
+                height: "40px",
+                borderRadius: "10px",
+                background: "var(--primary-subtle)",
+                color: "var(--color-primary)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Store size={22} />
+            </div>
             <div>
               <div className="topbar-brand">Dashboard {kantin.nama}</div>
               <div className="page-subtitle" style={{ marginTop: 0 }}>
@@ -165,11 +198,19 @@ export default function DashboardPage() {
           </div>
 
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => router.push("/")}>
-              Lihat Toko
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => router.push("/")}
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+            >
+              <Eye size={14} /> Lihat Toko
             </button>
-            <button className="btn btn-danger btn-sm" onClick={handleLogout}>
-              Keluar
+            <button
+              className="btn btn-danger btn-sm"
+              onClick={handleLogout}
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+            >
+              <LogOut size={14} /> Keluar
             </button>
           </div>
         </div>
@@ -200,7 +241,7 @@ export default function DashboardPage() {
                 color: kantin.buka !== false ? "var(--color-success)" : "var(--color-danger)",
               }}
             >
-              {kantin.buka !== false ? "🟢 BUKA (Menerima Pesanan)" : "🔴 TUTUP (Toko Ditutup)"}
+              {kantin.buka !== false ? "BUKA (Menerima Pesanan)" : "TUTUP (Toko Ditutup)"}
             </div>
           </div>
 
@@ -237,20 +278,22 @@ export default function DashboardPage() {
         {/* Horizontal Navigation Tabs */}
         <div className="chips-container" style={{ margin: "16px 0 20px" }}>
           {[
-            ["ord", "📋 Pesanan Masuk"],
-            ["mn", "🍽️ Menu & Harga"],
-            ["hp", "🧮 Hitung HPP"],
-            ["rk", "📅 Rekap Harian"],
-            ["lr", "📊 Laba Rugi"],
-            ["pq", "📱 QR Pembayaran"],
-            ["kp", "🏪 Profil Kantin"],
-          ].map(([id, label]) => (
+            { id: "ord", label: "Pesanan Masuk", icon: ClipboardList },
+            { id: "mn", label: "Menu & Harga", icon: Utensils },
+            { id: "hp", label: "Hitung HPP", icon: Calculator },
+            { id: "rk", label: "Rekap Harian", icon: Calendar },
+            { id: "lr", label: "Laba Rugi", icon: TrendingUp },
+            { id: "pq", label: "QR Pembayaran", icon: QrCode },
+            { id: "kp", label: "Profil Kantin", icon: Store },
+          ].map(({ id, label, icon: TabIcon }) => (
             <button
               key={id}
               className={`chip ${activeTab === id ? "active" : ""}`}
               onClick={() => setActiveTab(id)}
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
             >
-              {label}
+              <TabIcon size={14} />
+              <span>{label}</span>
             </button>
           ))}
         </div>
@@ -436,7 +479,6 @@ function OrdersTab({ orders, onUpdateStatus }) {
    Tab 2: Menu & Price Management Component
    ========================================================================== */
 function MenuTab({ kantinId, menus, onAdd, onUpdate, onDelete }) {
-  const [newEmoji, setNewEmoji] = useState("🍽️");
   const [newName, setNewName] = useState("");
   const [newHarga, setNewHarga] = useState("");
   const [newModal, setNewModal] = useState("");
@@ -452,7 +494,6 @@ function MenuTab({ kantinId, menus, onAdd, onUpdate, onDelete }) {
     await onAdd({
       kantin_id: kantinId,
       nama: newName.trim(),
-      emoji: newEmoji.trim() || "🍽️",
       harga: Number(newHarga),
       modal: Number(newModal) || 0,
       kategori: newKategori,
@@ -479,6 +520,13 @@ function MenuTab({ kantinId, menus, onAdd, onUpdate, onDelete }) {
     }
   };
 
+  const renderIcon = (kategori) => {
+    const k = (kategori || "").toLowerCase();
+    if (k.includes("minum")) return <Coffee size={24} color="var(--color-primary)" />;
+    if (k.includes("snack")) return <Cookie size={24} color="var(--color-primary)" />;
+    return <Utensils size={24} color="var(--color-primary)" />;
+  };
+
   return (
     <div>
       {/* Add Menu Form */}
@@ -492,25 +540,19 @@ function MenuTab({ kantinId, menus, onAdd, onUpdate, onDelete }) {
           boxShadow: "var(--shadow-sm)",
         }}
       >
-        <h3 style={{ fontSize: "1rem", fontWeight: "700", marginBottom: "12px" }}>
-          ➕ Tambah Menu Baru
-        </h3>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "12px" }}>
+          <Plus size={18} color="var(--color-primary)" />
+          <h3 style={{ fontSize: "1rem", fontWeight: "700", margin: 0 }}>
+            Tambah Menu Baru
+          </h3>
+        </div>
         <form onSubmit={handleAddMenu}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "10px" }}>
-            <div>
-              <label className="form-label">Emoji</label>
-              <input
-                className="form-input"
-                maxLength={4}
-                value={newEmoji}
-                onChange={(e) => setNewEmoji(e.target.value)}
-              />
-            </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "10px" }}>
             <div style={{ gridColumn: "span 2" }}>
               <label className="form-label">Nama Menu *</label>
               <input
                 className="form-input"
-                placeholder="Contoh: Nasi Bakar"
+                placeholder="Contoh: Nasi Bakar Ayam"
                 maxLength={30}
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
@@ -588,7 +630,27 @@ function MenuTab({ kantinId, menus, onAdd, onUpdate, onDelete }) {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: "180px" }}>
-              <span style={{ fontSize: "1.8rem" }}>{m.emoji || "🍽️"}</span>
+              <div
+                style={{
+                  width: "40px",
+                  height: "40px",
+                  borderRadius: "8px",
+                  background: "var(--bg-tertiary)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {m.foto_url ? (
+                  <img
+                    src={m.foto_url}
+                    alt={m.nama}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "8px" }}
+                  />
+                ) : (
+                  renderIcon(m.kategori)
+                )}
+              </div>
               <div>
                 <div style={{ fontWeight: "700", fontSize: "0.9375rem" }}>{m.nama}</div>
                 <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
@@ -600,7 +662,7 @@ function MenuTab({ kantinId, menus, onAdd, onUpdate, onDelete }) {
             <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
               {/* Photo Upload */}
               <label className="btn btn-secondary btn-sm" style={{ cursor: "pointer" }}>
-                📷 Foto
+                Foto
                 <input
                   type="file"
                   accept="image/*"
@@ -624,8 +686,9 @@ function MenuTab({ kantinId, menus, onAdd, onUpdate, onDelete }) {
                 onClick={() => {
                   if (confirm(`Hapus menu "${m.nama}"?`)) onDelete(m.id);
                 }}
+                style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}
               >
-                🗑️
+                <Trash2 size={14} />
               </button>
             </div>
           </div>

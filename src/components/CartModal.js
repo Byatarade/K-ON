@@ -1,8 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { formatRupiah, ONGKIR_FLAT } from "@/lib/utils";
 import DummyQR from "@/components/DummyQR";
+import {
+  ShoppingBag,
+  Plus,
+  Minus,
+  Utensils,
+  Truck,
+  UserCheck,
+  Banknote,
+  QrCode,
+  ArrowRight,
+  X,
+} from "lucide-react";
 
 export default function CartModal({
   isOpen,
@@ -14,6 +26,7 @@ export default function CartModal({
   onRemoveFromCart,
   onSubmitOrder,
   isSubmitting = false,
+  currentUser = null,
 }) {
   const [nama, setNama] = useState("");
   const [kelas, setKelas] = useState("");
@@ -21,6 +34,20 @@ export default function CartModal({
   const [isDelivery, setIsDelivery] = useState(false);
   const [payMethod, setPayMethod] = useState("tunai"); // "tunai" | "qr"
   const [catatan, setCatatan] = useState("");
+
+  // Auto-fill from logged-in user
+  useEffect(() => {
+    if (currentUser) {
+      if (currentUser.nama) setNama(currentUser.nama);
+      if (currentUser.role === "kantin") {
+        setKelas("Ibu Kantin");
+        setJurusan("Ibu Kantin");
+      } else if (currentUser.kelas) {
+        setKelas(currentUser.kelas);
+        setJurusan(currentUser.kelas);
+      }
+    }
+  }, [currentUser, isOpen]);
 
   if (!isOpen) return null;
 
@@ -42,22 +69,22 @@ export default function CartModal({
   };
 
   const submitOrder = () => {
-    if (!nama.trim() || !kelas.trim() || !jurusan.trim()) {
-      alert("Harap isi nama lengkap, kelas, dan jurusan terlebih dahulu ya! 😊");
+    if (!nama.trim() || !kelas.trim()) {
+      alert("Harap lengkapi nama dan kelas pemesan.");
       return;
     }
     if (cartEntries.length === 0) {
-      alert("Keranjang kamu masih kosong!");
+      alert("Keranjang belanja masih kosong.");
       return;
     }
 
     const orderPayload = {
       kantin_id: kantin.id,
+      siswa_id: currentUser?.id || null,
       nama_pemesan: nama.trim(),
       kelas: kelas.trim(),
-      jurusan: jurusan.trim(),
+      jurusan: jurusan.trim() || kelas.trim(),
       opsi_antar: isDelivery,
-      // QRIS = dibayar langsung -> pesanan langsung dimasak (status 1)
       status: payMethod === "qr" ? 1 : 0,
       sudah_bayar: payMethod === "qr",
       metode_bayar: payMethod,
@@ -67,7 +94,6 @@ export default function CartModal({
       items: cartEntries.map((it) => ({
         menu_id: it.id,
         nama: it.nama,
-        emoji: it.emoji || "🍽️",
         jumlah: it.qty,
         harga: it.harga,
         modal: it.modal || 0,
@@ -81,21 +107,24 @@ export default function CartModal({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <div>
-            <h3 className="modal-title">🛒 Keranjang Belanja</h3>
-            <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
-              {kantin?.nama || "Kantin"}
-            </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <ShoppingBag size={20} color="var(--color-primary)" />
+            <div>
+              <h3 className="modal-title">Keranjang Belanja</h3>
+              <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
+                {kantin?.nama || "Kantin"}
+              </span>
+            </div>
           </div>
           <button className="close-btn" onClick={onClose} aria-label="Tutup">
-            ✕
+            <X size={18} />
           </button>
         </div>
 
         {cartEntries.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "24px 0" }}>
+          <div style={{ textAlign: "center", padding: "32px 0" }}>
             <p style={{ color: "var(--text-secondary)", marginBottom: "16px" }}>
-              Keranjang masih kosong. Yuk pilih jajan dulu! 😋
+              Keranjang masih kosong. Silakan pilih menu terlebih dahulu.
             </p>
             <button className="btn btn-secondary btn-block" onClick={onClose}>
               Pilih Menu
@@ -117,7 +146,20 @@ export default function CartModal({
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span style={{ fontSize: "1.5rem" }}>{item.emoji || "🍽️"}</span>
+                    <div
+                      style={{
+                        width: "36px",
+                        height: "36px",
+                        borderRadius: "8px",
+                        background: "var(--bg-tertiary)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "var(--color-primary)",
+                      }}
+                    >
+                      <Utensils size={18} />
+                    </div>
                     <div>
                       <div style={{ fontWeight: "600", fontSize: "0.875rem" }}>{item.nama}</div>
                       <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
@@ -131,16 +173,18 @@ export default function CartModal({
                       type="button"
                       className="qty-btn"
                       onClick={() => onRemoveFromCart(item.id)}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
                     >
-                      −
+                      <Minus size={14} />
                     </button>
                     <span className="qty-val">{item.qty}</span>
                     <button
                       type="button"
                       className="qty-btn"
                       onClick={() => onAddToCart(item.id)}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
                     >
-                      +
+                      <Plus size={14} />
                     </button>
                   </div>
                 </div>
@@ -162,7 +206,9 @@ export default function CartModal({
               </div>
               {isDelivery && (
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.875rem", marginBottom: "4px" }}>
-                  <span style={{ color: "var(--text-secondary)" }}>🛵 Biaya Pengantaran</span>
+                  <span style={{ color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "4px" }}>
+                    <Truck size={14} /> Biaya Pengantaran
+                  </span>
                   <span>{formatRupiah(ONGKIR_FLAT)}</span>
                 </div>
               )}
@@ -184,7 +230,7 @@ export default function CartModal({
 
             {/* Form Fields */}
             <div className="form-group">
-              <label className="form-label">Nama Lengkap *</label>
+              <label className="form-label">Nama Pemesan *</label>
               <input
                 className="form-input"
                 type="text"
@@ -196,31 +242,19 @@ export default function CartModal({
               />
             </div>
 
-            <div style={{ display: "flex", gap: "10px" }}>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label">Kelas *</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  placeholder="Contoh: XI-2"
-                  maxLength={12}
-                  value={kelas}
-                  onChange={(e) => setKelas(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label">Jurusan *</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  placeholder="Contoh: RPL"
-                  maxLength={20}
-                  value={jurusan}
-                  onChange={(e) => setJurusan(e.target.value)}
-                  required
-                />
-              </div>
+            <div className="form-group">
+              <label className="form-label">
+                {currentUser?.role === "kantin" ? "Status / Peran Pemesan *" : "Kelas *"}
+              </label>
+              <input
+                className="form-input"
+                type="text"
+                placeholder={currentUser?.role === "kantin" ? "Ibu Kantin" : "Contoh: XII RPL 1"}
+                maxLength={20}
+                value={kelas}
+                onChange={(e) => setKelas(e.target.value)}
+                required
+              />
             </div>
 
             {/* Delivery option */}
@@ -230,14 +264,16 @@ export default function CartModal({
                 <div
                   className={`radio-card ${!isDelivery ? "active" : ""}`}
                   onClick={() => setIsDelivery(false)}
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
                 >
-                  🚶 Diambil Sendiri
+                  <UserCheck size={16} /> Diambil Sendiri
                 </div>
                 <div
                   className={`radio-card ${isDelivery ? "active" : ""}`}
                   onClick={() => setIsDelivery(true)}
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
                 >
-                  🛵 Diantar ke Kelas (+{formatRupiah(ONGKIR_FLAT)})
+                  <Truck size={16} /> Diantar ke Kelas (+{formatRupiah(ONGKIR_FLAT)})
                 </div>
               </div>
             </div>
@@ -249,14 +285,16 @@ export default function CartModal({
                 <div
                   className={`radio-card ${payMethod === "tunai" ? "active" : ""}`}
                   onClick={() => setPayMethod("tunai")}
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
                 >
-                  💵 Tunai
+                  <Banknote size={16} /> Tunai
                 </div>
                 <div
                   className={`radio-card ${payMethod === "qr" ? "active" : ""}`}
                   onClick={() => setPayMethod("qr")}
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
                 >
-                  📱 QR Code / QRIS
+                  <QrCode size={16} /> QR Code / QRIS
                 </div>
               </div>
             </div>
@@ -273,11 +311,13 @@ export default function CartModal({
                   border: "1px dashed var(--border-default)",
                 }}
               >
-                <div style={{ fontWeight: 700, fontSize: "0.8125rem", marginBottom: "8px" }}>QRIS • {kantin?.nama}</div>
+                <div style={{ fontWeight: 700, fontSize: "0.8125rem", marginBottom: "8px" }}>
+                  QRIS • {kantin?.nama}
+                </div>
                 <DummyQR seed={`${kantin?.id}-${grandTotal}`} />
                 <div style={{ fontWeight: 700, marginTop: "8px" }}>{formatRupiah(grandTotal)}</div>
                 <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "4px" }}>
-                  Kode QRIS simulasi. Klik tombol di bawah untuk menyelesaikan pembayaran, pesanan langsung dimasak.
+                  Scan QRIS untuk menyelesaikan pembayaran. Pesanan otomatis masuk status dimasak.
                 </div>
               </div>
             )}
@@ -300,12 +340,19 @@ export default function CartModal({
               type="submit"
               className="btn btn-primary btn-block btn-lg"
               disabled={isSubmitting}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
             >
-              {isSubmitting
-                ? "Mengirim Pesanan..."
-                : payMethod === "qr"
-                ? `📱 Bayar dengan QRIS (${formatRupiah(grandTotal)})`
-                : `🚀 Pesan Sekarang (${formatRupiah(grandTotal)})`}
+              {isSubmitting ? (
+                "Mengirim Pesanan..."
+              ) : payMethod === "qr" ? (
+                <>
+                  <QrCode size={18} /> Bayar QRIS ({formatRupiah(grandTotal)})
+                </>
+              ) : (
+                <>
+                  Pesan Sekarang ({formatRupiah(grandTotal)}) <ArrowRight size={18} />
+                </>
+              )}
             </button>
 
             <button

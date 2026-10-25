@@ -1,11 +1,13 @@
 "use client";
 
+import { Store } from "lucide-react";
+
 export default function KantinCard({ kantin, menuCount = 0, onSelect }) {
   const isOpen = kantin.buka !== false;
 
   const handleClick = () => {
     if (!isOpen) {
-      alert("Maaf, kantin ini sedang tutup. Coba lagi nanti ya! 🙏");
+      alert("Maaf, kantin ini sedang tutup. Silakan pilih kantin lain yang buka.");
       return;
     }
     onSelect(kantin);
@@ -21,11 +23,29 @@ export default function KantinCard({ kantin, menuCount = 0, onSelect }) {
         if (e.key === "Enter" || e.key === " ") handleClick();
       }}
     >
-      <div className="kantin-card-media" style={{ backgroundColor: "var(--bg-tertiary)" }}>
+      <div
+        className="kantin-card-media"
+        style={{
+          backgroundColor: "var(--bg-tertiary)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         {kantin.foto_url ? (
           <img src={kantin.foto_url} alt={kantin.nama} loading="lazy" />
         ) : (
-          <span style={{ fontSize: "3.2rem" }}>{kantin.emoji || "🏪"}</span>
+          <div
+            style={{
+              color: "var(--color-primary)",
+              opacity: 0.8,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Store size={48} strokeWidth={1.5} />
+          </div>
         )}
       </div>
 

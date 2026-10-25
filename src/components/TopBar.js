@@ -1,14 +1,18 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Link from "next/link";
+import { ArrowLeft, ShoppingBag, GraduationCap, Store, ChefHat, LogOut } from "lucide-react";
 
 export default function TopBar({
-  title = "K-ON 🎈",
+  title = "K-ON",
   subtitle = "Kantin Online Sekolah",
   showBack = false,
   onBack,
   cartCount = 0,
   onOpenCart,
+  currentUser = null,
+  onLogout,
   onSecretTrigger,
 }) {
   const tapCountRef = useRef(0);
@@ -27,6 +31,8 @@ export default function TopBar({
     }
   };
 
+  const isKantin = currentUser?.role === "kantin";
+
   return (
     <header className="topbar">
       <div className="topbar-content">
@@ -36,9 +42,9 @@ export default function TopBar({
               className="icon-button"
               onClick={onBack}
               aria-label="Kembali"
-              style={{ fontSize: "1rem", fontWeight: "700" }}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
             >
-              ←
+              <ArrowLeft size={20} />
             </button>
           )}
 
@@ -48,19 +54,80 @@ export default function TopBar({
           </div>
         </div>
 
-        <div className="topbar-actions">
+        <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {/* User pill info */}
+          {currentUser && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                background: "var(--bg-tertiary)",
+                padding: "6px 12px",
+                borderRadius: "var(--radius-full)",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                color: "var(--text-primary)",
+              }}
+            >
+              {isKantin ? (
+                <>
+                  <Store size={15} color="var(--color-primary)" />
+                  <span>{currentUser.nama} (Ibu Kantin)</span>
+                </>
+              ) : (
+                <>
+                  <GraduationCap size={15} color="var(--color-primary)" />
+                  <span>{currentUser.nama?.split(" ")[0]} ({currentUser.kelas || "Siswa"})</span>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Quick link back to dashboard if role is kantin */}
+          {isKantin && (
+            <Link
+              href="/dashboard"
+              className="btn btn-secondary btn-sm"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                fontSize: "0.75rem",
+                padding: "6px 10px",
+                textDecoration: "none",
+              }}
+            >
+              <ChefHat size={14} /> Dashboard
+            </Link>
+          )}
+
           {onOpenCart && (
             <button
               className="icon-button"
               onClick={onOpenCart}
               aria-label="Buka Keranjang"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
             >
-              🛒
+              <ShoppingBag size={20} />
               {cartCount > 0 && <span className="badge-count">{cartCount}</span>}
             </button>
           )}
 
-          {/* K-ON Brand Logo (Clean SVG with Secret 10-tap gesture) */}
+          {/* Logout button if logged in */}
+          {currentUser && onLogout && (
+            <button
+              className="icon-button"
+              onClick={onLogout}
+              aria-label="Keluar"
+              title="Keluar dari akun"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+            >
+              <LogOut size={18} />
+            </button>
+          )}
+
+          {/* K-ON Brand Logo */}
           <svg
             className="topbar-logo"
             viewBox="0 0 100 100"

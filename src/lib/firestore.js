@@ -122,16 +122,100 @@ export async function updateKantinStatus(kantinId, isOpen) {
   setLocal("kantin", updated);
 }
 
+/* ==========================================================================
+   Autentikasi & Akun Siswa
+   ========================================================================== */
+
+const DEFAULT_SISWA = [
+  {
+    id: "s-1",
+    nama: "Budi Santoso",
+    email: "budi@siswa.smk",
+    kelas: "XII RPL 1",
+    password: "password123",
+    role: "siswa",
+  },
+];
+
+/**
+ * Register a new student (pembeli) account.
+ */
+export async function registerSiswa({ nama, email, kelas, password }) {
+  const emailNorm = email.trim().toLowerCase();
+  const base = {
+    nama: nama.trim(),
+    email: emailNorm,
+    kelas: kelas.trim(),
+    password,
+    role: "siswa",
+  };
+
+  if (isFirebaseConfigured() && db) {
+    const snap = await getDocs(query(collection(db, "siswa"), where("email", "==", emailNorm)));
+    if (!snap.empty) throw new Error("EMAIL_TAKEN");
+    const ref = await addDoc(collection(db, "siswa"), { ...base, created_at: serverTimestamp() });
+    return { id: ref.id, ...base };
+  }
+
+  const list = getLocal("siswa", DEFAULT_SISWA);
+  if (list.some((s) => s.email?.toLowerCase() === emailNorm)) throw new Error("EMAIL_TAKEN");
+  const id = `s-${Date.now()}`;
+  const newSiswa = { ...base, id };
+  setLocal("siswa", [...list, newSiswa]);
+  return newSiswa;
+}
+
+/**
+ * Login student with email and password.
+ */
+export async function loginSiswa({ email, password }) {
+  const emailNorm = email.trim().toLowerCase();
+
+  if (isFirebaseConfigured() && db) {
+    const snap = await getDocs(query(collection(db, "siswa"), where("email", "==", emailNorm)));
+    if (snap.empty) throw new Error("NOT_FOUND");
+    const docData = snap.docs[0].data();
+    if (docData.password !== password) throw new Error("INVALID_PASSWORD");
+    return { id: snap.docs[0].id, ...docData };
+  }
+
+  const list = getLocal("siswa", DEFAULT_SISWA);
+  const found = list.find((s) => s.email?.toLowerCase() === emailNorm);
+  if (!found) throw new Error("NOT_FOUND");
+  if (found.password !== password) throw new Error("INVALID_PASSWORD");
+  return found;
+}
+
+/**
+ * Login kantin with username and password.
+ */
+export async function loginKantinUser({ username, password }) {
+  const uname = username.trim().toLowerCase();
+
+  if (isFirebaseConfigured() && db) {
+    const snap = await getDocs(query(collection(db, "kantin"), where("username", "==", uname)));
+    if (snap.empty) throw new Error("NOT_FOUND");
+    const docData = snap.docs[0].data();
+    if (docData.password !== password) throw new Error("INVALID_PASSWORD");
+    return { id: snap.docs[0].id, ...docData, role: "kantin" };
+  }
+
+  const list = getLocal("kantin", DEFAULT_KANTIN);
+  const found = list.find((k) => k.username?.toLowerCase() === uname);
+  if (!found) throw new Error("NOT_FOUND");
+  if (found.password !== password) throw new Error("INVALID_PASSWORD");
+  return { ...found, role: "kantin" };
+}
+
 /**
  * Register a new canteen (seller) account. Returns the new kantin id.
  * Throws Error("USERNAME_TAKEN") if the username already exists.
  */
-export async function registerKantin({ nama, emoji, username, password }) {
+export async function registerKantin({ nama, username, password, warna = "#2563EB" }) {
   const uname = username.trim().toLowerCase();
   const base = {
     nama: nama.trim(),
-    emoji: emoji || "🏪",
-    warna: "#2563EB",
+    warna: warna || "#2563EB",
     username: uname,
     password,
     buka: true,
@@ -247,17 +331,18 @@ export function subscribeOrdersByKantin(kantinId, callback) {
   if (isFirebaseConfigured() && db) {
     const q = query(
       collection(db, "pesanan"),
-      where("kantin_id", "==", String(kantinId)),
-      orderBy("created_at", "desc")
+      where("kantin_id", "==", String(kantinId))
     );
     return onSnapshot(
       q,
       (snapshot) => {
-        const list = snapshot.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-          created_at: d.data().created_at?.toDate?.() || new Date(d.data().created_at || Date.now()),
-        }));
+        const list = snapshot.docs
+          .map((d) => ({
+            id: d.id,
+            ...d.data(),
+            created_at: d.data().created_at?.toDate?.() || new Date(d.data().created_at || Date.now()),
+          }))
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         callback(list);
       },
       (error) => {
@@ -289,7 +374,7 @@ export function subscribeCustomerOrders(orderIds, callback) {
   }
 
   if (isFirebaseConfigured() && db) {
-    const q = query(collection(db, "pesanan"), orderBy("created_at", "desc"));
+    const q = collection(db, "pesanan");
     return onSnapshot(
       q,
       (snapshot) => {
@@ -299,7 +384,8 @@ export function subscribeCustomerOrders(orderIds, callback) {
             ...d.data(),
             created_at: d.data().created_at?.toDate?.() || new Date(d.data().created_at || Date.now()),
           }))
-          .filter((o) => orderIds.includes(String(o.id)));
+          .filter((o) => orderIds.includes(String(o.id)))
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         callback(list);
       },
       (error) => {
