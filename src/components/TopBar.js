@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { ArrowLeft, ShoppingBag, GraduationCap, Store, ChefHat, LogOut } from "lucide-react";
+import { ArrowLeft, ShoppingBag, GraduationCap, Store, ChefHat, LogOut, Bell } from "lucide-react";
 
 export default function TopBar({
   title = "K-ON",
@@ -11,6 +11,8 @@ export default function TopBar({
   onBack,
   cartCount = 0,
   onOpenCart,
+  unreadNotifCount = 0,
+  onOpenNotifications,
   currentUser = null,
   onLogout,
   onSecretTrigger,
@@ -36,49 +38,46 @@ export default function TopBar({
   return (
     <header className="topbar">
       <div className="topbar-content">
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div className="topbar-left">
           {showBack && (
             <button
               className="icon-button"
               onClick={onBack}
               aria-label="Kembali"
-              style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
             >
-              <ArrowLeft size={20} />
+              <ArrowLeft size={18} />
             </button>
           )}
 
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div className="topbar-brand">{title}</div>
-            {subtitle && <div className="page-subtitle" style={{ marginTop: 0 }}>{subtitle}</div>}
+            {subtitle && (
+              <div className="topbar-subtitle" title={subtitle}>
+                {subtitle}
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div className="topbar-actions">
           {/* User pill info */}
           {currentUser && (
             <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                background: "var(--bg-tertiary)",
-                padding: "6px 12px",
-                borderRadius: "var(--radius-full)",
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                color: "var(--text-primary)",
-              }}
+              className="topbar-user-pill"
+              title={`${currentUser.nama || ""} (${currentUser.kelas || ""})`}
             >
               {isKantin ? (
                 <>
-                  <Store size={15} color="var(--color-primary)" />
-                  <span>{currentUser.nama} (Ibu Kantin)</span>
+                  <Store size={14} color="var(--color-primary)" style={{ flexShrink: 0 }} />
+                  <span className="user-pill-name">{currentUser.nama?.split(" ")[0]}</span>
+                  <span className="user-pill-class"> (Ibu Kantin)</span>
                 </>
               ) : (
                 <>
-                  <GraduationCap size={15} color="var(--color-primary)" />
-                  <span>{currentUser.nama?.split(" ")[0]} ({currentUser.kelas || "Siswa"})</span>
+                  <GraduationCap size={14} color="var(--color-primary)" style={{ flexShrink: 0 }} />
+                  <span className="user-pill-name">{currentUser.nama?.split(" ")[0]}</span>
+                  <span className="user-pill-class"> ({currentUser.kelas || "Siswa"})</span>
                 </>
               )}
             </div>
@@ -100,6 +99,24 @@ export default function TopBar({
             >
               <ChefHat size={14} /> Dashboard
             </Link>
+          )}
+
+          {/* Notification Bell Button */}
+          {onOpenNotifications && (
+            <button
+              className="icon-button"
+              onClick={onOpenNotifications}
+              aria-label="Pemberitahuan"
+              title="Pusat Pemberitahuan"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}
+            >
+              <Bell size={20} />
+              {unreadNotifCount > 0 && (
+                <span className="badge-count" style={{ backgroundColor: "var(--color-danger)" }}>
+                  {unreadNotifCount > 9 ? "9+" : unreadNotifCount}
+                </span>
+              )}
+            </button>
           )}
 
           {onOpenCart && (

@@ -100,6 +100,89 @@ export default function OrderCard({ order, kantinName = "Kantin" }) {
         )}
       </div>
 
+      {/* Ready / Delivery Announcement Banner (Status 2) */}
+      {order.status === 2 && (
+        <div
+          style={{
+            marginTop: "12px",
+            padding: "10px 12px",
+            borderRadius: "var(--radius-md)",
+            backgroundColor: "var(--color-info-light)",
+            border: "1px solid #BAE6FD",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            animation: "pulse-gentle 2s infinite ease-in-out",
+          }}
+        >
+          <div
+            style={{
+              width: "28px",
+              height: "28px",
+              borderRadius: "50%",
+              backgroundColor: "var(--color-info)",
+              color: "#fff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            {order.opsi_antar ? <Truck size={16} /> : <UserCheck size={16} />}
+          </div>
+          <div style={{ fontSize: "0.8125rem", color: "#0369A1", lineHeight: 1.35 }}>
+            <div style={{ fontWeight: 700 }}>
+              {order.opsi_antar ? "Makanan Sedang Diantar!" : "Makanan Siap Diambil!"}
+            </div>
+            <div>
+              {order.opsi_antar
+                ? `Pesananmu sedang menuju ke ${order.kelas || "kelasmu"}. Mohon ditunggu ya!`
+                : `Silakan langsung menuju ke ${kantinName} dan sebutkan nomor pesanan #${order.id}.`}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection / Cancellation Notice (Status 4) */}
+      {isCancelled && (
+        <div
+          style={{
+            marginTop: "12px",
+            padding: "10px 12px",
+            borderRadius: "var(--radius-md)",
+            backgroundColor: "var(--color-danger-light)",
+            border: "1px solid #FECACA",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "10px",
+          }}
+        >
+          <div
+            style={{
+              width: "28px",
+              height: "28px",
+              borderRadius: "50%",
+              backgroundColor: "var(--color-danger)",
+              color: "#fff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              marginTop: "1px",
+            }}
+          >
+            <XCircle size={16} />
+          </div>
+          <div style={{ fontSize: "0.8125rem", color: "#991B1B", lineHeight: 1.35 }}>
+            <div style={{ fontWeight: 700 }}>Pesanan Ditolak / Dibatalkan</div>
+            <div>
+              <strong>Alasan:</strong>{" "}
+              {order.alasan_batal || "Mohon maaf, kantin sedang tidak dapat memproses pesanan ini."}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 4-Step Progress Bar */}
       {!isCancelled ? (
         <>

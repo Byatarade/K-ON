@@ -367,11 +367,21 @@ export function subscribeOrdersByKantin(kantinId, callback) {
   return () => {};
 }
 
-export function subscribeCustomerOrders(orderIds, callback) {
-  if (!orderIds || orderIds.length === 0) {
-    callback([]);
+export function subscribeCustomerOrders(orderIds, siswaIdOrCallback, maybeCallback) {
+  const siswaId = typeof siswaIdOrCallback === "string" ? siswaIdOrCallback : null;
+  const callback = typeof siswaIdOrCallback === "function" ? siswaIdOrCallback : maybeCallback;
+
+  const validOrderIds = Array.isArray(orderIds) ? orderIds : [];
+  if (validOrderIds.length === 0 && !siswaId) {
+    if (typeof callback === "function") callback([]);
     return () => {};
   }
+
+  const matchesOrder = (o) => {
+    if (validOrderIds.includes(String(o.id))) return true;
+    if (siswaId && String(o.siswa_id) === String(siswaId)) return true;
+    return false;
+  };
 
   if (isFirebaseConfigured() && db) {
     const q = collection(db, "pesanan");
@@ -384,20 +394,29 @@ export function subscribeCustomerOrders(orderIds, callback) {
             ...d.data(),
             created_at: d.data().created_at?.toDate?.() || new Date(d.data().created_at || Date.now()),
           }))
-          .filter((o) => orderIds.includes(String(o.id)))
+          .filter(matchesOrder)
           .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        callback(list);
+        if (typeof callback === "function") callback(list);
       },
       (error) => {
         console.error("subscribeCustomerOrders error:", error);
         const all = getLocal("orders", []);
-        callback(all.filter((o) => orderIds.includes(String(o.id))));
+        if (typeof callback === "function") callback(all.filter(matchesOrder));
       }
     );
   }
 
   const all = getLocal("orders", []);
-  callback(all.filter((o) => orderIds.includes(String(o.id))));
+  if (typeof callback === "function") callback(all.filter(matchesOrder));
+
+  const handler = () => {
+    const cur = getLocal("orders", []);
+    if (typeof callback === "function") callback(cur.filter(matchesOrder));
+  };
+  if (typeof window !== "undefined") {
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }
   return () => {};
 }
 
@@ -424,14 +443,14 @@ export async function createOrder(orderData) {
   return newId;
 }
 
-export async function updateOrderStatus(orderId, newStatus) {
+export async function updateOrderStatus(orderId, newStatus, extraData = {}) {
   if (isFirebaseConfigured() && db) {
     const ref = doc(db, "pesanan", String(orderId));
-    await updateDoc(ref, { status: newStatus });
+    await updateDoc(ref, { status: newStatus, ...extraData });
     return;
   }
   const all = getLocal("orders", []);
-  const updated = all.map((o) => (String(o.id) === String(orderId) ? { ...o, status: newStatus } : o));
+  const updated = all.map((o) => (String(o.id) === String(orderId) ? { ...o, status: newStatus, ...extraData } : o));
   setLocal("orders", updated);
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
@@ -12,12 +12,24 @@ import CartModal from "@/components/CartModal";
 import OrderCard from "@/components/OrderCard";
 import EmptyState from "@/components/EmptyState";
 import LoginModal from "@/components/LoginModal";
+import NotificationToast from "@/components/NotificationToast";
+import NotificationDrawer from "@/components/NotificationDrawer";
 import {
   subscribeKantin,
   subscribeMenu,
   subscribeCustomerOrders,
   createOrder,
 } from "@/lib/firestore";
+import {
+  playNotificationSound,
+  triggerVibration,
+  requestNotificationPermission,
+  sendBrowserNotification,
+  getStoredNotifications,
+  saveNotification,
+  markAllNotificationsRead,
+  clearAllNotifications,
+} from "@/lib/notifications";
 import { formatRupiah } from "@/lib/utils";
 import {
   Flame,
@@ -27,13 +39,23 @@ import {
   PackageOpen,
   ArrowLeft,
   GraduationCap,
+  Bell,
 } from "lucide-react";
 
 export default function HomePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("jajan"); // "jajan" | "pesanan"
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isAuthChecking, setIsAuthChecking] = useState(true);
+
+  // Lazy initialize authentication from localStorage
+  const [currentUser, setCurrentUser] = useState(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const savedUser = localStorage.getItem("kon_auth_user");
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch (e) {
+      return null;
+    }
+  });
 
   const [kantinList, setKantinList] = useState([]);
   const [selectedKantin, setSelectedKantin] = useState(null);
@@ -45,36 +67,48 @@ export default function HomePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cartKantinId, setCartKantinId] = useState(null);
 
+  // Notifications State
+  const [activeToast, setActiveToast] = useState(null);
+  const [isNotifDrawerOpen, setIsNotifDrawerOpen] = useState(false);
+  const [notifications, setNotifications] = useState(() => {
+    return getStoredNotifications(currentUser?.id || "guest");
+  });
+  const [notifPermission, setNotifPermission] = useState("default");
+
   // Customer orders stored by ID in browser
-  const [customerOrderIds, setCustomerOrderIds] = useState([]);
-  const [customerOrders, setCustomerOrders] = useState([]);
-
-  // Check auth user on mount - jika belum login, arahkan ke /login
-  useEffect(() => {
-    try {
-      const savedUser = localStorage.getItem("kon_auth_user");
-      if (savedUser) {
-        setCurrentUser(JSON.parse(savedUser));
-        setIsAuthChecking(false);
-      } else {
-        router.replace("/login");
-      }
-    } catch (e) {
-      router.replace("/login");
-    }
-  }, [router]);
-
-  // Load customer order IDs from localStorage on mount
-  useEffect(() => {
+  const [customerOrderIds, setCustomerOrderIds] = useState(() => {
+    if (typeof window === "undefined") return [];
     try {
       const saved = localStorage.getItem("kon_customer_orders");
-      if (saved) {
-        setCustomerOrderIds(JSON.parse(saved));
-      }
+      return saved ? JSON.parse(saved) : [];
     } catch (e) {
-      console.error("Failed to load customer order IDs", e);
+      return [];
+    }
+  });
+  const [customerOrders, setCustomerOrders] = useState([]);
+
+  // Check auth user: if not logged in, redirect to /login
+  useEffect(() => {
+    if (!currentUser) {
+      router.replace("/login");
+    }
+  }, [currentUser, router]);
+
+  // Sync notification permission on mount
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setNotifPermission(Notification.permission);
     }
   }, []);
+
+  // Listen to storage/custom notification events to update notification list
+  useEffect(() => {
+    const handleUpdate = () => {
+      setNotifications(getStoredNotifications(currentUser?.id || "guest"));
+    };
+    window.addEventListener("kon_notifications_updated", handleUpdate);
+    return () => window.removeEventListener("kon_notifications_updated", handleUpdate);
+  }, [currentUser?.id]);
 
   // Subscribe to Kantin list
   useEffect(() => {
@@ -92,17 +126,100 @@ export default function HomePage() {
     return () => unsub?.();
   }, []);
 
-  // Subscribe to customer orders
+  // Subscribe to customer orders (by ID list or logged-in student ID)
   useEffect(() => {
-    if (customerOrderIds.length === 0) {
-      setCustomerOrders([]);
-      return;
-    }
-    const unsub = subscribeCustomerOrders(customerOrderIds, (orders) => {
+    const unsub = subscribeCustomerOrders(customerOrderIds, currentUser?.id, (orders) => {
       setCustomerOrders(orders);
     });
     return () => unsub?.();
-  }, [customerOrderIds]);
+  }, [customerOrderIds, currentUser?.id]);
+
+  // Order status transition tracking for real-time notifications
+  const prevOrdersStatusRef = useRef({});
+  const isInitialLoadRef = useRef(true);
+
+  useEffect(() => {
+    if (customerOrders.length === 0) return;
+
+    if (isInitialLoadRef.current) {
+      // First load: record initial statuses without blasting notifications
+      const initialMap = {};
+      customerOrders.forEach((o) => {
+        initialMap[o.id] = o.status;
+      });
+      prevOrdersStatusRef.current = initialMap;
+      isInitialLoadRef.current = false;
+      return;
+    }
+
+    // Inspect orders for real-time status changes
+    customerOrders.forEach((ord) => {
+      const prevStatus = prevOrdersStatusRef.current[ord.id];
+      const curStatus = ord.status;
+      const kantin = kantinList.find((k) => String(k.id) === String(ord.kantin_id));
+      const kantinName = kantin?.nama || "Kantin Sekolah";
+
+      // 1. Pesanan Hampir Selesai / Siap Diambil / Sedang Diantar (Status 2)
+      if (prevStatus !== undefined && prevStatus < 2 && curStatus === 2) {
+        const isDelivery = Boolean(ord.opsi_antar);
+        const title = isDelivery ? "Makanan Sedang Diantar!" : "Makanan Siap Diambil!";
+        const message = isDelivery
+          ? `Pesanan #${ord.id} di ${kantinName} sedang diantar menuju kelas ${ord.kelas || "kamu"}!`
+          : `Pesanan #${ord.id} di ${kantinName} sudah siap diambil di kantin. Segera ke kantin ya!`;
+
+        playNotificationSound("ready");
+        triggerVibration([150, 80, 150]);
+        sendBrowserNotification(title, { body: message, tag: `order-${ord.id}-ready` });
+
+        const notifItem = {
+          orderId: ord.id,
+          status: 2,
+          title,
+          message,
+          opsi_antar: isDelivery,
+          kantin_id: ord.kantin_id,
+          kantinName,
+        };
+        setActiveToast(notifItem);
+        saveNotification(currentUser?.id || "guest", notifItem);
+      }
+
+      // 2. Pesanan Ditolak / Dibatalkan (Status 4)
+      if (prevStatus !== undefined && prevStatus !== 4 && curStatus === 4) {
+        const title = "Pesanan Ditolak / Dibatalkan";
+        const reason = ord.alasan_batal || "Mohon maaf, kantin tidak dapat memproses pesanan ini.";
+        const message = `Pesanan #${ord.id} di ${kantinName} ditolak.`;
+
+        playNotificationSound("reject");
+        triggerVibration([200, 100, 200]);
+        sendBrowserNotification(title, {
+          body: `${message} Alasan: ${reason}`,
+          tag: `order-${ord.id}-rejected`,
+        });
+
+        const notifItem = {
+          orderId: ord.id,
+          status: 4,
+          title,
+          message,
+          reason,
+          opsi_antar: Boolean(ord.opsi_antar),
+          kantin_id: ord.kantin_id,
+          kantinName,
+        };
+        setActiveToast(notifItem);
+        saveNotification(currentUser?.id || "guest", notifItem);
+      }
+
+      // Update recorded status
+      prevOrdersStatusRef.current[ord.id] = curStatus;
+    });
+  }, [customerOrders, kantinList, currentUser?.id]);
+
+  const handleRequestPermission = async () => {
+    const res = await requestNotificationPermission();
+    setNotifPermission(res);
+  };
 
   const handleLogout = () => {
     if (confirm("Apakah kamu yakin ingin keluar dari akun?")) {
@@ -116,8 +233,8 @@ export default function HomePage() {
     }
   };
 
-  // If checking authentication or unauthenticated, show loading before redirect
-  if (isAuthChecking || !currentUser) {
+  // If unauthenticated, show loading before redirect to login
+  if (!currentUser) {
     return (
       <div
         style={{
@@ -200,6 +317,11 @@ export default function HomePage() {
   const handleSubmitOrder = async (orderPayload) => {
     setIsSubmitting(true);
     try {
+      // Prompt browser notification permission if not yet decided
+      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+        requestNotificationPermission().then((res) => setNotifPermission(res));
+      }
+
       const newOrderId = await createOrder(orderPayload);
       const updatedOrderIds = [newOrderId, ...customerOrderIds];
       setCustomerOrderIds(updatedOrderIds);
@@ -223,6 +345,7 @@ export default function HomePage() {
   };
 
   const activeOrdersCount = customerOrders.filter((o) => o.status < 3).length;
+  const unreadNotifCount = notifications.filter((n) => !n.read).length;
 
   return (
     <div style={{ minHeight: "100vh", paddingBottom: "80px" }}>
@@ -233,13 +356,15 @@ export default function HomePage() {
           selectedKantin
             ? "Katalog Menu Kantin"
             : currentUser?.role === "kantin"
-            ? "Kantin Online • Ibu Kantin"
-            : `Kantin Online • ${currentUser?.kelas || "Siswa"}`
+            ? "Ibu Kantin"
+            : "Kantin Online"
         }
         showBack={Boolean(selectedKantin)}
         onBack={() => setSelectedKantin(null)}
         cartCount={cartItemCount}
         onOpenCart={cartItemCount > 0 ? () => setIsCartOpen(true) : null}
+        unreadNotifCount={unreadNotifCount}
+        onOpenNotifications={() => setIsNotifDrawerOpen(true)}
         currentUser={currentUser}
         onLogout={handleLogout}
         onSecretTrigger={() => setIsLoginOpen(true)}
@@ -477,6 +602,57 @@ export default function HomePage() {
               </p>
             </div>
 
+            {/* Notification Permission Prompt Banner */}
+            {notifPermission === "default" && (
+              <div
+                style={{
+                  margin: "12px 0 16px",
+                  padding: "12px 16px",
+                  borderRadius: "var(--radius-lg)",
+                  backgroundColor: "var(--accent-primary-light)",
+                  border: "1px solid #BFDBFE",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <div
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      borderRadius: "50%",
+                      backgroundColor: "var(--accent-primary)",
+                      color: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Bell size={18} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "0.875rem", fontWeight: "700", color: "var(--text-primary)" }}>
+                      Nyalakan Notifikasi Pesanan
+                    </div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                      Dapatkan pemberitahuan langsung saat makanan siap diambil atau jika pesanan ditolak.
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={handleRequestPermission}
+                  style={{ whiteSpace: "nowrap", flexShrink: 0 }}
+                >
+                  Nyalakan
+                </button>
+              </div>
+            )}
+
             {customerOrders.length > 0 ? (
               <div style={{ marginTop: "12px" }}>
                 {customerOrders.map((ord) => {
@@ -504,6 +680,23 @@ export default function HomePage() {
           </div>
         )}
       </main>
+
+      {/* Real-Time Floating Notification Toast */}
+      <NotificationToast
+        notification={activeToast}
+        onClose={() => setActiveToast(null)}
+        onAction={() => setActiveTab("pesanan")}
+      />
+
+      {/* Notification Center Drawer */}
+      <NotificationDrawer
+        isOpen={isNotifDrawerOpen}
+        onClose={() => setIsNotifDrawerOpen(false)}
+        notifications={notifications}
+        onMarkAllRead={() => markAllNotificationsRead(currentUser?.id || "guest")}
+        onClearAll={() => clearAllNotifications(currentUser?.id || "guest")}
+        onSelectNotification={() => setActiveTab("pesanan")}
+      />
 
       {/* Floating Cart Bar (appears when items are in cart) */}
       <FloatingCartBar

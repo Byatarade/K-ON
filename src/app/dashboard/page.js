@@ -38,6 +38,8 @@ import {
   Flame,
   Truck,
   XCircle,
+  X,
+  AlertTriangle,
   Coffee,
   Cookie,
   UserCheck,
@@ -376,6 +378,29 @@ export default function DashboardPage() {
    Tab 1: Orders Component
    ========================================================================== */
 function OrdersTab({ orders, onUpdateStatus }) {
+  const [rejectModalOrder, setRejectModalOrder] = useState(null);
+  const [rejectReason, setRejectReason] = useState("Stok menu habis");
+  const [customReason, setCustomReason] = useState("");
+
+  const QUICK_REASONS = [
+    "Stok menu habis",
+    "Kantin sudah mau tutup",
+    "Antrean terlalu padat",
+    "Bahan makanan belum siap",
+    "Lainnya",
+  ];
+
+  const handleConfirmReject = () => {
+    if (!rejectModalOrder) return;
+    const finalReason =
+      rejectReason === "Lainnya"
+        ? customReason.trim() || "Ditolak oleh pihak kantin"
+        : rejectReason;
+    onUpdateStatus(rejectModalOrder.id, 4, { alasan_batal: finalReason });
+    setRejectModalOrder(null);
+    setCustomReason("");
+  };
+
   if (orders.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "40px", backgroundColor: "var(--bg-primary)", borderRadius: "var(--radius-lg)" }}>
@@ -459,6 +484,28 @@ function OrdersTab({ orders, onUpdateStatus }) {
               )}
             </div>
 
+            {/* If cancelled and has reason, display it */}
+            {isCancelled && ord.alasan_batal && (
+              <div
+                style={{
+                  fontSize: "0.8125rem",
+                  color: "var(--color-danger)",
+                  backgroundColor: "var(--color-danger-light)",
+                  padding: "8px 12px",
+                  borderRadius: "var(--radius-sm)",
+                  margin: "8px 0",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <AlertTriangle size={15} />
+                <span>
+                  <strong>Alasan Penolakan:</strong> {ord.alasan_batal}
+                </span>
+              </div>
+            )}
+
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
               <div>
                 <span style={{ fontWeight: "700", fontSize: "1.0625rem" }}>
@@ -511,13 +558,13 @@ function OrdersTab({ orders, onUpdateStatus }) {
                   <button
                     className="btn btn-danger btn-sm"
                     onClick={() => {
-                      if (confirm("Yakin ingin membatalkan pesanan ini?")) {
-                        onUpdateStatus(ord.id, 4);
-                      }
+                      setRejectModalOrder(ord);
+                      setRejectReason("Stok menu habis");
+                      setCustomReason("");
                     }}
                     style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
                   >
-                    <XCircle size={14} /> Batalkan
+                    <XCircle size={14} /> Tolak / Batal
                   </button>
                 </div>
               )}
@@ -525,6 +572,119 @@ function OrdersTab({ orders, onUpdateStatus }) {
           </div>
         );
       })}
+
+      {/* Modal Penolakan / Pembatalan Pesanan */}
+      {rejectModalOrder && (
+        <div className="modal-overlay" onClick={() => setRejectModalOrder(null)} style={{ zIndex: 1100 }}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "440px" }}>
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "var(--radius-md)",
+                    backgroundColor: "var(--color-danger-light)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "var(--color-danger)",
+                  }}
+                >
+                  <XCircle size={20} />
+                </div>
+                <div>
+                  <h3 className="modal-title" style={{ margin: 0, fontSize: "1.0625rem" }}>
+                    Tolak Pesanan #{rejectModalOrder.id}
+                  </h3>
+                  <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                    {rejectModalOrder.nama_pemesan} ({rejectModalOrder.kelas})
+                  </span>
+                </div>
+              </div>
+              <button className="close-btn" onClick={() => setRejectModalOrder(null)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: "16px" }}>
+              <p style={{ margin: "0 0 12px", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                Pilih atau masukkan alasan penolakan. Pemberitahuan akan dikirimkan langsung ke siswa pemesan.
+              </p>
+
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "14px" }}>
+                {QUICK_REASONS.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setRejectReason(r)}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: "var(--radius-full)",
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      border:
+                        rejectReason === r
+                          ? "1.5px solid var(--color-danger)"
+                          : "1px solid var(--border-default)",
+                      backgroundColor:
+                        rejectReason === r ? "var(--color-danger-light)" : "var(--bg-primary)",
+                      color:
+                        rejectReason === r ? "var(--color-danger)" : "var(--text-secondary)",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+
+              {rejectReason === "Lainnya" && (
+                <div style={{ marginBottom: "14px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      marginBottom: "4px",
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    Ketik Alasan Penolakan:
+                  </label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="Contoh: Sedang istirahat sholat / antrean penuh"
+                    value={customReason}
+                    onChange={(e) => setCustomReason(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "16px" }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setRejectModalOrder(null)}
+                >
+                  Kembali
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger btn-sm"
+                  onClick={handleConfirmReject}
+                  style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                >
+                  <XCircle size={15} /> Konfirmasi Tolak
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

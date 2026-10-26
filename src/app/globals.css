@@ -1036,3 +1036,228 @@ input, select, textarea {
     transform: translateY(0);
   }
 }
+
+@keyframes pulse-gentle {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.01);
+    opacity: 0.95;
+  }
+}
+
+/* ==========================================================================
+   Real-Time Notification System (Toasts, Banners & Drawer)
+   ========================================================================== */
+
+.notif-toast-container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 9999;
+  max-width: 420px;
+  width: calc(100% - 32px);
+  pointer-events: auto;
+}
+
+@media (max-width: 480px) {
+  .notif-toast-container {
+    top: 12px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+  }
+}
+
+.toast-enter {
+  animation: notifSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.toast-exit {
+  animation: notifSlideUp 0.25s cubic-bezier(0.7, 0, 0.84, 0) forwards;
+}
+
+@keyframes notifSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-24px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes notifSlideUp {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+}
+
+.notif-toast-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1.5px solid var(--border-default);
+  position: relative;
+  overflow: hidden;
+}
+
+.notif-toast-card.toast-success {
+  border-left: 5px solid var(--accent-primary);
+}
+
+.notif-toast-card.toast-danger {
+  border-left: 5px solid var(--color-danger);
+}
+
+.notif-toast-icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background-color: var(--bg-secondary);
+}
+
+.toast-success .notif-toast-icon-wrap {
+  background-color: var(--accent-primary-light);
+}
+
+.toast-danger .notif-toast-icon-wrap {
+  background-color: var(--color-danger-light);
+}
+
+.notif-toast-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-toast-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+  padding-right: 18px;
+}
+
+.notif-toast-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.toast-danger .notif-toast-title {
+  color: var(--color-danger);
+}
+
+.notif-toast-time {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.notif-toast-message {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.notif-toast-reason {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: #991B1B;
+  background-color: var(--color-danger-light);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  line-height: 1.35;
+}
+
+.notif-toast-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.notif-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.notif-dismiss-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--duration-fast);
+}
+
+.notif-dismiss-btn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}
+
+.notif-close-x {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast);
+}
+
+.notif-close-x:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}
+
+/* Badge unread count */
+.badge-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background-color: var(--accent-primary);
+  color: #FFFFFF;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
