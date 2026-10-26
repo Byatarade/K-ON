@@ -19,7 +19,7 @@ import {
   addExpense,
   deleteExpense,
 } from "@/lib/firestore";
-import { uploadImage } from "@/lib/storage";
+import { convertImageToBase64, uploadImage } from "@/lib/storage";
 import { formatRupiah, formatTime, formatDate, ORDER_STATUS, getOrderStatusInfo, ONGKIR_FLAT } from "@/lib/utils";
 import {
   Store,
@@ -45,6 +45,14 @@ import {
   UserCheck,
   Banknote,
   ChefHat,
+  ImagePlus,
+  Camera,
+  Loader2,
+  Package,
+  Receipt,
+  TrendingDown,
+  Upload,
+  Zap,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -179,43 +187,69 @@ export default function DashboardPage() {
       {/* Top Header */}
       <header className="topbar">
         <div className="topbar-content">
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div className="topbar-left" style={{ minWidth: 0, flex: 1 }}>
             <div
               style={{
-                width: "40px",
-                height: "40px",
+                width: "38px",
+                height: "38px",
                 borderRadius: "10px",
                 background: "var(--primary-subtle)",
                 color: "var(--color-primary)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                flexShrink: 0,
               }}
             >
-              <Store size={22} />
+              <Store size={20} />
             </div>
-            <div>
-              <div className="topbar-brand">Dashboard {kantin.nama}</div>
-              <div className="page-subtitle" style={{ marginTop: 0 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div
+                className="topbar-brand"
+                style={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  fontSize: "1.0625rem",
+                }}
+                title={`Dashboard ${kantin.nama}`}
+              >
+                Dashboard {kantin.nama}
+              </div>
+              <div
+                className="topbar-subtitle"
+                style={{
+                  marginTop: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  fontSize: "0.75rem",
+                  color: "var(--text-secondary)",
+                }}
+              >
                 Pengelolaan Kantin & Penjualan
               </div>
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <div className="topbar-actions" style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 }}>
             <button
               className="btn btn-secondary btn-sm"
               onClick={() => router.push("/")}
-              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap", flexShrink: 0 }}
+              title="Lihat Toko Siswa"
             >
-              <Eye size={14} /> Lihat Toko
+              <Eye size={15} />
+              <span className="topbar-btn-text">Lihat Toko</span>
             </button>
             <button
               className="btn btn-danger btn-sm"
               onClick={handleLogout}
-              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap", flexShrink: 0 }}
+              title="Keluar dari Dashboard"
             >
-              <LogOut size={14} /> Keluar
+              <LogOut size={15} />
+              <span className="topbar-btn-text">Keluar</span>
             </button>
           </div>
         </div>
@@ -697,7 +731,26 @@ function MenuTab({ kantinId, menus, onAdd, onUpdate, onDelete }) {
   const [newHarga, setNewHarga] = useState("");
   const [newModal, setNewModal] = useState("");
   const [newKategori, setNewKategori] = useState("Makanan");
+  const [newImagePreview, setNewImagePreview] = useState(null); // base64 preview for new menu
+  const [newImageFile, setNewImageFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadingMenuId, setUploadingMenuId] = useState(null); // track which menu is uploading
+
+  // Handle image selection for new menu
+  const handleNewImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    // Quick preview
+    const reader = new FileReader();
+    reader.onload = (ev) => setNewImagePreview(ev.target.result);
+    reader.readAsDataURL(file);
+    setNewImageFile(file);
+  };
+
+  const clearNewImage = () => {
+    setNewImagePreview(null);
+    setNewImageFile(null);
+  };
 
   const handleAddMenu = async (e) => {
     e.preventDefault();
@@ -705,33 +758,54 @@ function MenuTab({ kantinId, menus, onAdd, onUpdate, onDelete }) {
       alert("Nama dan harga jual wajib diisi!");
       return;
     }
-    await onAdd({
-      kantin_id: kantinId,
-      nama: newName.trim(),
-      harga: Number(newHarga),
-      modal: Number(newModal) || 0,
-      kategori: newKategori,
-      tersedia: true,
-      foto_url: null,
-    });
-    setNewName("");
-    setNewHarga("");
-    setNewModal("");
-    alert("Menu baru berhasil ditambahkan!");
-  };
 
-  const handlePhotoUpload = async (menuId, file) => {
-    if (!file) return;
     setIsUploading(true);
     try {
-      const url = await uploadImage(file, `menu/${kantinId}/${menuId}_${Date.now()}.jpg`);
-      await onUpdate(menuId, { foto_url: url });
-      alert("Foto menu berhasil diperbarui!");
-    } catch (e) {
-      alert("Gagal mengunggah foto.");
+      let foto_url = null;
+      if (newImageFile) {
+        foto_url = await convertImageToBase64(newImageFile);
+      }
+
+      await onAdd({
+        kantin_id: kantinId,
+        nama: newName.trim(),
+        harga: Number(newHarga),
+        modal: Number(newModal) || 0,
+        kategori: newKategori,
+        tersedia: true,
+        foto_url,
+      });
+      setNewName("");
+      setNewHarga("");
+      setNewModal("");
+      clearNewImage();
+      alert("Menu baru berhasil ditambahkan!");
+    } catch (err) {
+      alert(err.message || "Gagal menambahkan menu.");
     } finally {
       setIsUploading(false);
     }
+  };
+
+  // Handle image upload / change for existing menu
+  const handlePhotoUpload = async (menuId, file) => {
+    if (!file) return;
+    setUploadingMenuId(menuId);
+    try {
+      const base64Url = await convertImageToBase64(file);
+      await onUpdate(menuId, { foto_url: base64Url });
+      alert("Foto menu berhasil diperbarui!");
+    } catch (err) {
+      alert(err.message || "Gagal mengompres gambar.");
+    } finally {
+      setUploadingMenuId(null);
+    }
+  };
+
+  // Remove photo from existing menu
+  const handleRemovePhoto = async (menuId) => {
+    if (!confirm("Hapus foto menu ini?")) return;
+    await onUpdate(menuId, { foto_url: null });
   };
 
   const renderIcon = (kategori) => {
@@ -810,14 +884,108 @@ function MenuTab({ kantinId, menus, onAdd, onUpdate, onDelete }) {
                 <option>Snack</option>
               </select>
             </div>
+
+            {/* Image upload for new menu */}
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label className="form-label">Foto Menu (opsional, maks 500 KB)</label>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                {/* Preview */}
+                {newImagePreview ? (
+                  <div style={{ position: "relative" }}>
+                    <img
+                      src={newImagePreview}
+                      alt="Preview"
+                      style={{
+                        width: "80px",
+                        height: "80px",
+                        objectFit: "cover",
+                        borderRadius: "var(--radius-md)",
+                        border: "2px solid var(--border-default)",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={clearNewImage}
+                      style={{
+                        position: "absolute",
+                        top: "-6px",
+                        right: "-6px",
+                        width: "22px",
+                        height: "22px",
+                        borderRadius: "50%",
+                        border: "none",
+                        backgroundColor: "var(--color-danger)",
+                        color: "#fff",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 0,
+                        fontSize: "12px",
+                        lineHeight: 1,
+                      }}
+                      title="Hapus gambar"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <label
+                    style={{
+                      width: "80px",
+                      height: "80px",
+                      borderRadius: "var(--radius-md)",
+                      border: "2px dashed var(--border-default)",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "4px",
+                      cursor: "pointer",
+                      color: "var(--text-secondary)",
+                      backgroundColor: "var(--bg-tertiary)",
+                      transition: "border-color 0.2s, background-color 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "var(--color-primary)";
+                      e.currentTarget.style.backgroundColor = "var(--primary-subtle)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "var(--border-default)";
+                      e.currentTarget.style.backgroundColor = "var(--bg-tertiary)";
+                    }}
+                  >
+                    <ImagePlus size={20} />
+                    <span style={{ fontSize: "0.625rem", fontWeight: 600 }}>Upload</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      onChange={handleNewImageSelect}
+                    />
+                  </label>
+                )}
+                <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                  Format: JPG, PNG, WebP<br />
+                  Akan dikompresi otomatis &lt; 500 KB
+                </div>
+              </div>
+            </div>
           </div>
 
           <button
             type="submit"
             className="btn btn-primary btn-sm"
-            style={{ marginTop: "12px" }}
+            style={{ marginTop: "12px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+            disabled={isUploading}
           >
-            Simpan Menu
+            {isUploading ? (
+              <>
+                <Loader2 size={14} className="spin-icon" /> Menyimpan...
+              </>
+            ) : (
+              "Simpan Menu"
+            )}
           </button>
         </form>
       </div>
@@ -843,28 +1011,45 @@ function MenuTab({ kantinId, menus, onAdd, onUpdate, onDelete }) {
               marginBottom: "8px",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: "180px" }}>
-              <div
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: "180px" }}>
+              {/* Thumbnail / Klik untuk upload */}
+              <label
                 style={{
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "8px",
+                  width: "52px",
+                  height: "52px",
+                  borderRadius: "10px",
                   background: "var(--bg-tertiary)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  overflow: "hidden",
+                  cursor: "pointer",
+                  position: "relative",
+                  border: "1px solid var(--border-default)",
+                  flexShrink: 0,
                 }}
+                title={m.foto_url ? "Klik untuk ganti gambar" : "Klik untuk upload gambar"}
               >
-                {m.foto_url ? (
+                {uploadingMenuId === m.id ? (
+                  <Loader2 size={20} className="spin-icon" color="var(--color-primary)" />
+                ) : m.foto_url ? (
                   <img
                     src={m.foto_url}
                     alt={m.nama}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "8px" }}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
                 ) : (
                   renderIcon(m.kategori)
                 )}
-              </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(e) => handlePhotoUpload(m.id, e.target.files[0])}
+                  disabled={uploadingMenuId === m.id}
+                />
+              </label>
+
               <div>
                 <div style={{ fontWeight: "700", fontSize: "0.9375rem" }}>{m.nama}</div>
                 <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
@@ -874,17 +1059,49 @@ function MenuTab({ kantinId, menus, onAdd, onUpdate, onDelete }) {
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-              {/* Photo Upload */}
-              <label className="btn btn-secondary btn-sm" style={{ cursor: "pointer" }}>
-                Foto
+              {/* Tombol Jelas Ubah Gambar / Upload Gambar */}
+              <label
+                className="btn btn-secondary btn-sm"
+                style={{
+                  cursor: uploadingMenuId === m.id ? "wait" : "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "0.8125rem",
+                  fontWeight: 600,
+                }}
+              >
+                {uploadingMenuId === m.id ? (
+                  <>
+                    <Loader2 size={14} className="spin-icon" /> Memproses...
+                  </>
+                ) : (
+                  <>
+                    <Camera size={14} />
+                    {m.foto_url ? "Ubah Gambar" : "Upload Gambar"}
+                  </>
+                )}
                 <input
                   type="file"
                   accept="image/*"
                   hidden
                   onChange={(e) => handlePhotoUpload(m.id, e.target.files[0])}
-                  disabled={isUploading}
+                  disabled={uploadingMenuId === m.id}
                 />
               </label>
+
+              {/* Hapus Foto jika ada */}
+              {m.foto_url && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => handleRemovePhoto(m.id)}
+                  style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "0.75rem", color: "var(--color-danger)" }}
+                  title="Hapus foto"
+                >
+                  <X size={12} /> Hapus
+                </button>
+              )}
 
               {/* Availability Toggle */}
               <button
@@ -974,8 +1191,9 @@ function HppTab({ menus, onSaveModal }) {
           marginBottom: "16px",
         }}
       >
-        <h3 style={{ fontSize: "1rem", fontWeight: "700", marginBottom: "12px" }}>
-          🧮 Hitung Harga Pokok Produksi (HPP)
+        <h3 style={{ fontSize: "1rem", fontWeight: "700", marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <Calculator size={18} color="var(--color-primary)" />
+          <span>Hitung Harga Pokok Produksi (HPP)</span>
         </h3>
 
         <div className="form-group">
@@ -1000,7 +1218,8 @@ function HppTab({ menus, onSaveModal }) {
               checked={isTitipan}
               onChange={(e) => setIsTitipan(e.target.checked)}
             />
-            📦 Ini barang titipan / konsinyasi (dari pihak lain)
+            <Package size={16} />
+            <span>Ini barang titipan / konsinyasi (dari pihak lain)</span>
           </label>
         </div>
 
@@ -1070,8 +1289,10 @@ function HppTab({ menus, onSaveModal }) {
                     type="button"
                     className="btn btn-danger btn-sm"
                     onClick={() => removeMaterial(i)}
+                    style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                    title="Hapus bahan"
                   >
-                    ✕
+                    <X size={14} />
                   </button>
                 </div>
               ))}
@@ -1088,8 +1309,9 @@ function HppTab({ menus, onSaveModal }) {
             {/* Operasional */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
               <div style={{ backgroundColor: "var(--bg-secondary)", padding: "12px", borderRadius: "var(--radius-md)" }}>
-                <div style={{ fontWeight: "700", fontSize: "0.8125rem", marginBottom: "6px" }}>
-                  👩‍🍳 Biaya Tenaga Kerja
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: "700", fontSize: "0.8125rem", marginBottom: "6px" }}>
+                  <ChefHat size={15} color="var(--color-primary)" />
+                  <span>Biaya Tenaga Kerja</span>
                 </div>
                 <label className="form-label">Gaji harian (Rp)</label>
                 <input
@@ -1110,8 +1332,9 @@ function HppTab({ menus, onSaveModal }) {
               </div>
 
               <div style={{ backgroundColor: "var(--bg-secondary)", padding: "12px", borderRadius: "var(--radius-md)" }}>
-                <div style={{ fontWeight: "700", fontSize: "0.8125rem", marginBottom: "6px" }}>
-                  💡 Biaya Overhead (Listrik, sewa, gas)
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: "700", fontSize: "0.8125rem", marginBottom: "6px" }}>
+                  <Zap size={15} color="var(--color-primary)" />
+                  <span>Biaya Overhead (Listrik, sewa, gas)</span>
                 </div>
                 <label className="form-label">Biaya bulanan (Rp)</label>
                 <input
@@ -1181,10 +1404,11 @@ function HppTab({ menus, onSaveModal }) {
 
           <button
             className="btn btn-success btn-block"
-            style={{ marginTop: "14px" }}
+            style={{ marginTop: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
             onClick={() => onSaveModal(selectedMenuId, hppPerProduk)}
           >
-            ✅ Terapkan sebagai Harga Modal Menu Ini
+            <CheckCircle2 size={16} />
+            <span>Terapkan sebagai Harga Modal Menu Ini</span>
           </button>
         </div>
       </div>
@@ -1337,8 +1561,9 @@ function RekapTab({
           overflowX: "auto",
         }}
       >
-        <h3 style={{ fontSize: "1rem", fontWeight: "700", marginBottom: "12px" }}>
-          📅 Rekapitulasi Penjualan
+        <h3 style={{ fontSize: "1rem", fontWeight: "700", marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <Calendar size={18} color="var(--color-primary)" />
+          <span>Rekapitulasi Penjualan</span>
         </h3>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
           <thead>
@@ -1464,8 +1689,9 @@ function LabaRugiTab({
           marginBottom: "16px",
         }}
       >
-        <h3 style={{ fontSize: "1.0625rem", fontWeight: "700", marginBottom: "12px" }}>
-          📊 Laporan Laba Rugi
+        <h3 style={{ fontSize: "1.0625rem", fontWeight: "700", marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <TrendingUp size={18} color="var(--color-primary)" />
+          <span>Laporan Laba Rugi</span>
         </h3>
 
         <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px dashed var(--border-default)" }}>
@@ -1509,7 +1735,17 @@ function LabaRugiTab({
             color: netProfit >= 0 ? "var(--color-success)" : "var(--color-danger)",
           }}
         >
-          <span>{netProfit >= 0 ? "🎉 LABA BERSIH" : "😢 RUGI BERSIH"}</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            {netProfit >= 0 ? (
+              <>
+                <TrendingUp size={18} /> LABA BERSIH
+              </>
+            ) : (
+              <>
+                <TrendingDown size={18} /> RUGI BERSIH
+              </>
+            )}
+          </span>
           <span>{formatRupiah(netProfit)}</span>
         </div>
       </div>
@@ -1523,8 +1759,9 @@ function LabaRugiTab({
           padding: "16px",
         }}
       >
-        <h3 style={{ fontSize: "1rem", fontWeight: "700", marginBottom: "10px" }}>
-          🧾 Biaya Operasional / Pengeluaran Lain
+        <h3 style={{ fontSize: "1rem", fontWeight: "700", marginBottom: "10px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <Receipt size={18} color="var(--color-primary)" />
+          <span>Biaya Operasional / Pengeluaran Lain</span>
         </h3>
         <form onSubmit={handleAddExpense} style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "12px" }}>
           <input
@@ -1564,14 +1801,15 @@ function LabaRugiTab({
             }}
           >
             <span>{exp.keterangan}</span>
-            <span>
-              {formatRupiah(exp.jumlah)}{" "}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+              {formatRupiah(exp.jumlah)}
               <button
                 className="btn btn-danger btn-sm"
-                style={{ padding: "2px 8px" }}
+                style={{ padding: "4px 8px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
                 onClick={() => onDeleteExpense(exp.id)}
+                title="Hapus pengeluaran"
               >
-                ✕
+                <X size={13} />
               </button>
             </span>
           </div>
@@ -1619,8 +1857,9 @@ function QrTab({ kantin, onUpdateProfile }) {
         margin: "0 auto",
       }}
     >
-      <h3 style={{ fontSize: "1.0625rem", fontWeight: "700", marginBottom: "8px" }}>
-        📱 QR Code Pembayaran Kantin
+      <h3 style={{ fontSize: "1.0625rem", fontWeight: "700", marginBottom: "8px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+        <QrCode size={18} color="var(--color-primary)" />
+        <span>QR Code Pembayaran Kantin</span>
       </h3>
       <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginBottom: "16px" }}>
         QRIS ini akan ditampilkan kepada pembeli saat memilih metode bayar QR Code.
@@ -1642,9 +1881,9 @@ function QrTab({ kantin, onUpdateProfile }) {
         {kantin.qr_url ? (
           <img src={kantin.qr_url} alt="QRIS" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
         ) : (
-          <div style={{ textAlign: "center", padding: "12px" }}>
-            <span style={{ fontSize: "3rem" }}>📱</span>
-            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "4px" }}>
+          <div style={{ textAlign: "center", padding: "12px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+            <QrCode size={48} strokeWidth={1.5} color="var(--text-secondary)" style={{ opacity: 0.5, marginBottom: "6px" }} />
+            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
               Belum ada QR asli
             </div>
           </div>
@@ -1652,8 +1891,8 @@ function QrTab({ kantin, onUpdateProfile }) {
       </div>
 
       <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-        <label className="btn btn-primary btn-sm" style={{ cursor: "pointer" }}>
-          📤 Ganti QRIS Asli
+        <label className="btn btn-primary btn-sm" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+          <Upload size={14} /> Ganti QRIS Asli
           <input
             type="file"
             accept="image/*"
@@ -1710,8 +1949,9 @@ function ProfilTab({ kantin, onUpdateProfile }) {
         margin: "0 auto",
       }}
     >
-      <h3 style={{ fontSize: "1.0625rem", fontWeight: "700", marginBottom: "16px" }}>
-        🏪 Profil & Pengaturan Kantin
+      <h3 style={{ fontSize: "1.0625rem", fontWeight: "700", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+        <Store size={18} color="var(--color-primary)" />
+        <span>Profil & Pengaturan Kantin</span>
       </h3>
 
       <div
@@ -1749,8 +1989,8 @@ function ProfilTab({ kantin, onUpdateProfile }) {
       </div>
 
       <div style={{ marginTop: "16px" }}>
-        <label className="btn btn-secondary btn-block" style={{ cursor: "pointer" }}>
-          📷 Ganti Foto Kantin
+        <label className="btn btn-secondary btn-block" style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+          <Camera size={16} /> Ganti Foto Kantin
           <input
             type="file"
             accept="image/*"

@@ -1,70 +1,106 @@
 /**
- * Firebase Storage Upload Helper with Canvas Compression
+ * Image → Base64 Data URL Helper
+ *
+ * Converts an image file to a base64 data URL string (stored directly in Firestore).
+ * Enforces a maximum size of 500 KB for the resulting base64 string.
+ * Uses HTML5 Canvas to resize & compress the image.
  */
 
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage, isFirebaseConfigured } from "./firebase";
+const MAX_BASE64_BYTES = 500 * 1024; // 500 KB
 
 /**
- * Compress an image file using HTML5 Canvas
- * @param {File} file 
- * @param {number} maxDimension 
- * @param {number} quality 
- * @returns {Promise<Blob>}
+ * Compress an image file using HTML5 Canvas.
+ * Returns a base64 data URL string.
+ *
+ * @param {File} file         – The image file to process
+ * @param {number} maxDim     – Maximum width/height in pixels (default 800)
+ * @param {number} quality    – JPEG quality 0‒1 (default 0.8)
+ * @returns {Promise<string>} – base64 data URL
  */
-export function compressImage(file, maxDimension = 640, quality = 0.8) {
+function compressToBase64(file, maxDim = 800, quality = 0.8) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
         const canvas = document.createElement("canvas");
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
 
         const ctx = canvas.getContext("2d");
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        canvas.toBlob(
-          (blob) => {
-            if (blob) resolve(blob);
-            else reject(new Error("Canvas compression failed"));
-          },
-          "image/jpeg",
-          quality
-        );
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        resolve(dataUrl);
       };
-      img.onerror = () => reject(new Error("Failed to load image"));
+      img.onerror = () => reject(new Error("Gagal memuat gambar"));
       img.src = e.target.result;
     };
-    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.onerror = () => reject(new Error("Gagal membaca file"));
     reader.readAsDataURL(file);
   });
 }
 
 /**
- * Upload an image file to Firebase Storage (or return Base64 if not configured)
- * @param {File} file 
- * @param {string} path - e.g. "menu/item-123.jpg"
- * @returns {Promise<string>} Download URL
+ * Get the byte size of a base64 data URL string.
+ * The actual byte count ≈ 3/4 of the base64‐encoded portion.
  */
-export async function uploadImage(file, path) {
-  const compressedBlob = await compressImage(file, 640, 0.8);
+function getBase64ByteSize(dataUrl) {
+  // dataUrl = "data:image/jpeg;base64,XXXXX..."
+  const base64 = dataUrl.split(",")[1] || "";
+  return Math.ceil((base64.length * 3) / 4);
+}
 
-  if (isFirebaseConfigured() && storage) {
-    const storageRef = ref(storage, path);
-    await uploadBytes(storageRef, compressedBlob);
-    return await getDownloadURL(storageRef);
+/**
+ * Convert an image File to a base64 data URL that fits under 500 KB.
+ *
+ * Strategy:
+ * 1. Start with maxDim=800, quality=0.8
+ * 2. If result > 500 KB, progressively reduce quality (down to 0.3)
+ * 3. If still > 500 KB, reduce maxDim (640 → 480 → 320) + quality sweep
+ * 4. If nothing works, reject with a helpful error message
+ *
+ * @param {File} file
+ * @returns {Promise<string>} base64 data URL
+ */
+export async function convertImageToBase64(file) {
+  // Quick client-side check on the raw file size –
+  // if it's a very small file we can try right away
+  const MAX_RAW_SIZE = 10 * 1024 * 1024; // refuse files > 10 MB to keep things sane
+  if (file.size > MAX_RAW_SIZE) {
+    throw new Error("Ukuran file terlalu besar (maks 10 MB). Silakan pilih gambar yang lebih kecil.");
   }
 
-  // Fallback to local Base64 string for immediate preview
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(compressedBlob);
-  });
+  const dimensions = [800, 640, 480, 320];
+  const qualities = [0.8, 0.65, 0.5, 0.35, 0.25];
+
+  for (const dim of dimensions) {
+    for (const q of qualities) {
+      const dataUrl = await compressToBase64(file, dim, q);
+      const byteSize = getBase64ByteSize(dataUrl);
+
+      if (byteSize <= MAX_BASE64_BYTES) {
+        return dataUrl;
+      }
+    }
+  }
+
+  throw new Error(
+    "Gagal mengompres gambar di bawah 500 KB. Silakan pilih gambar dengan resolusi lebih kecil atau gunakan format JPG."
+  );
+}
+
+/**
+ * Legacy-compatible wrapper.
+ * Returns a base64 data URL (no Firebase Storage upload).
+ *
+ * @param {File} file
+ * @param {string} _path – ignored (kept for backward compatibility)
+ * @returns {Promise<string>}
+ */
+export async function uploadImage(file, _path) {
+  return convertImageToBase64(file);
 }

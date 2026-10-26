@@ -183,6 +183,9 @@ input, select, textarea {
   color: var(--text-primary);
   line-height: 1.2;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .topbar-subtitle {
@@ -304,6 +307,16 @@ input, select, textarea {
 
   .topbar-actions {
     gap: 6px;
+  }
+
+  .topbar-btn-text {
+    display: inline;
+  }
+
+  @media (max-width: 520px) {
+    .topbar-btn-text {
+      display: none;
+    }
   }
 
   .icon-button {
@@ -1404,5 +1417,19 @@ input, select, textarea {
   align-items: center;
   justify-content: center;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Spinner Animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin-icon {
+  animation: spin 1s linear infinite;
 }
 
